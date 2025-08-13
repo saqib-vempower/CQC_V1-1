@@ -1,0 +1,141 @@
+'use client';
+
+import type { Dispatch, SetStateAction } from 'react';
+import { useState } from 'react';
+import { format } from 'date-fns';
+import { analyzeCallTranscript } from '@/ai/flows/analyze-call-transcript';
+import { generateCoachingTips } from '@/ai/flows/generate-coaching-tips';
+import { Loader2 } from 'lucide-react';
+import type { CallData } from '@/app/page';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { useToast } from '@/hooks/use-toast';
+
+const rubricItems = [
+  'Opening', 'Active Listening', 'Problem Solving', 'Professionalism', 'Closing'
+];
+
+type RubricScorerProps = {
+  callData: CallData;
+  setStep: Dispatch<SetStateAction<number>>;
+  setCallData: Dispatch<SetStateAction<CallData>>;
+};
+
+export function RubricScorer({ callData, setStep, setCallData }: RubricScorerProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [scores, setScores] = useState<Record<string, number>>(() => {
+    const initialScores: Record<string, number> = {};
+    rubricItems.forEach(item => initialScores[item] = 3);
+    return initialScores;
+  });
+  const { toast } = useToast();
+
+  const handleScoreChange = (item: string, value: number[]) => {
+    setScores(prev => ({...prev, [item]: value[0]}));
+  };
+
+  const parseTimestamps = (timestampsStr: string) => {
+    if (!timestampsStr.trim()) return [];
+    return timestampsStr.split('\n').map(line => {
+      const parts = line.split(':');
+      const timePart = parts.pop() || '';
+      const segment = parts.join(':').trim();
+      const [startTime, endTime] = timePart.split('-').map(t => t.trim());
+      return { segment, startTime: startTime || '00:00:00', endTime: endTime || '00:00:00' };
+    }).filter(t => t.segment);
+  };
+  
+  async function onSubmit() {
+    setIsLoading(true);
+    try {
+      setCallData(prev => ({ ...prev, rubricScores: scores }));
+      
+      const analysisResult = await analyzeCallTranscript({
+        transcript: callData.transcript,
+        audioMetrics: callData.audioMetrics,
+        rubricScores: JSON.stringify(scores),
+      });
+
+      const parsedTimestamps = parseTimestamps(callData.timestamps);
+
+      const coachingTipsResult = await generateCoachingTips({
+        rubricScores: scores,
+        transcript: callData.transcript,
+        timestamps: parsedTimestamps,
+        universityName: callData.universityName,
+        domain: callData.domain,
+        callDate: callData.callDate ? format(callData.callDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
+      });
+
+      if (!analysisResult || !coachingTipsResult) {
+        throw new Error('Failed to get analysis or coaching tips.');
+      }
+
+      setCallData(prev => ({
+        ...prev,
+        analysis: analysisResult,
+        coachingTips: coachingTipsResult.coachingTips
+      }));
+
+      toast({
+        title: "Analysis Complete",
+        description: "AI analysis and coaching tips have been generated.",
+      });
+
+      setStep(3);
+
+    } catch (error) {
+       console.error(error);
+      toast({
+        variant: 'destructive',
+        title: 'An error occurred',
+        description: error instanceof Error ? error.message : 'Could not analyze the call. Please try again.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <Card className="max-w-2xl mx-auto shadow-lg">
+      <CardHeader>
+        <CardTitle className="font-headline text-xl">Score The Call</CardTitle>
+        <CardDescription>
+          Use the rubric below to score the agent's performance on a scale of 1 to 5.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-8">
+        <div className="space-y-6">
+          {rubricItems.map(item => (
+            <div key={item} className="grid gap-4">
+              <div className="flex justify-between items-center">
+                <Label htmlFor={item} className="text-base">{item}</Label>
+                <span className="w-12 text-center font-bold text-lg text-primary bg-primary/10 rounded-md py-1">{scores[item]}</span>
+              </div>
+              <Slider
+                id={item}
+                min={1}
+                max={5}
+                step={1}
+                value={[scores[item]]}
+                onValueChange={(value) => handleScoreChange(item, value)}
+              />
+            </div>
+          ))}
+        </div>
+        <Button onClick={onSubmit} disabled={isLoading} className="w-full">
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Generating Insights...
+            </>
+          ) : (
+            'Generate Coaching & View Results'
+          )}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
