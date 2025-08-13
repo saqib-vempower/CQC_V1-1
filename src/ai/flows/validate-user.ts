@@ -50,8 +50,9 @@ const validateUserFlow = ai.defineFlow(
   },
   async ({ email }) => {
     const db = getDb();
+    const normalizedEmail = email.toLowerCase();
     const allowedUsersCollection = db.collection('allowedUsers');
-    const userDoc = await allowedUsersCollection.doc(email.toLowerCase()).get();
+    const userDoc = await allowedUsersCollection.doc(normalizedEmail).get();
 
     if (userDoc.exists) {
       const userData = userDoc.data();
@@ -60,6 +61,13 @@ const validateUserFlow = ai.defineFlow(
         role: userData?.role || 'agent', // Default to 'agent' if role is not specified
       };
     }
+
+    // If user is not allowed, log the signup attempt.
+    const signupRequestsCollection = db.collection('signupRequests');
+    await signupRequestsCollection.add({
+      email: normalizedEmail,
+      timestamp: new Date(),
+    });
 
     return {
       isAllowed: false,

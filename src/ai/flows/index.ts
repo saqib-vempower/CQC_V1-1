@@ -6,3 +6,4 @@ export * from './validate-user';
 export * from './get-all-calls';
 export * from './export-to-sheets';
 export * from './score-rubric';
+export * from './get-signup-requests';
