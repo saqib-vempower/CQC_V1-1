@@ -24,7 +24,7 @@ export function Splash() {
         </div>
       </main>
        <footer className="text-center p-4 text-muted-foreground text-sm">
-        <p>Powered by AI</p>
+        <p>Powered by Gemini</p>
       </footer>
     </div>
   );
