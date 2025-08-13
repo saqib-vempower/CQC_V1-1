@@ -46,7 +46,7 @@ const universities = [
 const formSchema = z.object({
   universityName: z.string().min(2, { message: 'University name is required.' }),
   domain: z.string().min(2, { message: 'Domain is required.' }),
-  callDate: z.date({ required_error: 'A call date is required.' }),
+  callDate: z.date().optional(),
   audioFile: z
     .custom<FileList>()
     .refine((files) => files?.length === 1, 'Audio file is required.')
@@ -187,7 +187,7 @@ export function CallUploadForm({ setStep, setCallData }: CallUploadFormProps) {
               name="callDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Call Date</FormLabel>
+                  <FormLabel>Call Date (Optional)</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
