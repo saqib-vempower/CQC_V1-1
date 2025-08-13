@@ -365,5 +365,3 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
     </Card>
   );
 }
-
-    
