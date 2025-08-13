@@ -27,20 +27,28 @@ export default function AdminPage() {
 
         const checkRole = async () => {
             if (user) {
-                const userDocRef = doc(db, 'allowedUsers', user.email!);
-                const userDoc = await getDoc(userDocRef);
-                if (userDoc.exists()) {
-                    const userRole = userDoc.data().role;
-                    if (userRole === 'admin' || userRole === 'qa_reviewer') {
-                        setIsAuthorized(true);
+                try {
+                    const userDocRef = doc(db, 'allowedUsers', user.email!);
+                    const userDoc = await getDoc(userDocRef);
+                    if (userDoc.exists()) {
+                        const userRole = userDoc.data().role;
+                        if (userRole === 'admin' || userRole === 'qa_reviewer') {
+                            setIsAuthorized(true);
+                        } else {
+                            // If role is not admin/reviewer, redirect immediately.
+                            router.push('/');
+                        }
                     } else {
+                         // If user document doesn't exist, they are not authorized.
                         router.push('/');
                     }
-                } else {
+                } catch (error) {
+                    console.error("Authorization check failed:", error);
                     router.push('/');
+                } finally {
+                     setLoading(false);
                 }
             }
-            setLoading(false);
         };
 
         checkRole();
@@ -58,12 +66,12 @@ export default function AdminPage() {
     }
 
     if (!isAuthorized) {
-        // This is a fallback, but the redirect should have already happened.
+        // This content will briefly show while redirecting.
         return (
              <div className="flex flex-col min-h-screen bg-background">
                 <Header />
                 <div className="flex-grow flex items-center justify-center">
-                    <p>Access Denied. You do not have permission to view this page.</p>
+                    <p>Redirecting...</p>
                 </div>
             </div>
         )
