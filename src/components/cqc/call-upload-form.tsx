@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Loader2, UploadCloud, FileCheck2, FileX2, ChevronsRight, Info } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, UploadCloud, FileCheck2, FileX2, ChevronsRight } from 'lucide-react';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 import type { CallData, CallFile } from '@/app/page';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
 
@@ -291,7 +290,6 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
                                             multiple
                                             className="sr-only"
                                             onChange={handleFileChange}
-                                            {...fileRest}
                                         />
                                     </label>
                                     <p className="pl-1">or drag and drop</p>
