@@ -43,6 +43,8 @@ const universities = [
   { abbr: 'RU', name: 'Rockhurst University' },
 ];
 
+const domains = ['Support', 'Reach', 'Connect'];
+
 const formSchema = z.object({
   universityName: z.string().min(2, { message: 'University name is required.' }),
   domain: z.string().min(2, { message: 'Domain is required.' }),
@@ -174,9 +176,20 @@ export function CallUploadForm({ setStep, setCallData }: CallUploadFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Domain</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Admissions" {...field} />
-                    </FormControl>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a domain" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {domains.map(domain => (
+                          <SelectItem key={domain} value={domain}>
+                            {domain}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
