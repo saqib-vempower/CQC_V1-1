@@ -53,7 +53,7 @@ export default function LoginPage() {
     try {
         const { isValid, userId } = await validateUser({ email: values.email });
         if (!isValid) {
-            throw new Error('This email address is not authorized.');
+            throw new Error('Please contact admin to use the app.');
         }
 
         const { token } = await createCustomToken({ uid: userId! });
