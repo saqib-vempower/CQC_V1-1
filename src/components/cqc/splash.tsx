@@ -14,7 +14,7 @@ export function Splash() {
           Welcome to Call Quality Compass
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-          Your AI-powered solution for analyzing call recordings, providing objective feedback, and generating actionable coaching tips to elevate your team's performance.
+          Your AI-powered solution to empower agents through insightful call analysis.
         </p>
         <div className="flex gap-4">
           <Button asChild size="lg" variant="outline">
