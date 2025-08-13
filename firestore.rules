@@ -1,32 +1,19 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to get user's role from the 'allowedUsers' collection.
-    // The resource.data object contains the document's fields.
-    function getUserRole(email) {
-      return get(/databases/$(database)/documents/allowedUsers/$(email)).data.role;
-    }
-    
-    // Helper function to check if a user is an admin.
-    function isAdmin(email) {
-      return getUserRole(email) == 'admin';
+
+    // Allow users to read their own document in the allowedUsers collection
+    // to check their role. The document ID is the user's email.
+    match /allowedUsers/{userEmail} {
+      allow read: if request.auth != null && request.auth.token.email == userEmail;
     }
 
-    // Rules for the 'allowedUsers' collection.
-    match /allowedUsers/{email} {
-      // Only admins can read or write to the allowed users list.
-      allow read, write: if request.auth != null && isAdmin(request.auth.token.email);
-    }
-
-    // Rules for the 'calls' collection.
+    // Server-side flows using the Admin SDK will bypass these rules.
+    // Client-side access to the 'calls' collection is not needed.
     match /calls/{callId} {
-      // Admins and QA Reviewers can read call records.
-      allow read: if request.auth != null && (getUserRole(request.auth.token.email) == 'admin' || getUserRole(request.auth.token.email) == 'qa_reviewer');
-      
-      // Only admins can create, update, or delete call records.
-      allow write: if request.auth != null && isAdmin(request.auth.token.email);
+      allow read, write: if false;
     }
   }
 }
