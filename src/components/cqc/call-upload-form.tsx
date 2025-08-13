@@ -363,10 +363,10 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
               {isTranscribing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Transcribing {transcribedFiles.length}/{callData.files.filter(f => f.status === 'valid').length}...
+                  Auditing {transcribedFiles.length}/{callData.files.filter(f => f.status === 'valid').length}...
                 </>
               ) : (
-                `Transcribe ${callData.files.filter(f => f.status === 'valid').length} Valid File(s)`
+                `Start Auditing ${callData.files.filter(f => f.status === 'valid').length} Valid File(s)`
               )}
             </Button>
           </form>

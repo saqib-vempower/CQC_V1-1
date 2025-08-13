@@ -5,7 +5,7 @@ type StepperProps = {
 };
 
 const steps = [
-  { id: 1, name: 'Upload & Transcribe' },
+  { id: 1, name: 'Start Auditing' },
   { id: 2, name: 'Score Rubric' },
   { id: 3, name: 'View Results' },
 ];
