@@ -9,7 +9,7 @@ import * as z from 'zod';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon, Loader2, UploadCloud, FileCheck2, FileX2, ChevronsRight } from 'lucide-react';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
-import type { CallData, CallFile } from '@/app/page';
+import type { CallData, CallFile } from '@/components/cqc/dashboard';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -59,8 +59,8 @@ const formSchema = z.object({
       'All files must be audio files.'
     )
     .refine(
-        (files) => files.every((file) => file.name.endsWith('.mp3')),
-        'All files must be .mp3 format.'
+        (files) => files.every((file) => file.name.endsWith('.mp3') || file.name.endsWith('.wav')),
+        'All files must be in .mp3 or .wav format.'
     ),
 });
 
@@ -91,7 +91,8 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
     if (fileList) {
       const files = Array.from(fileList);
       const processedFiles: CallFile[] = files.map(file => {
-        const parts = file.name.replace('.mp3', '').split('_');
+        const fileName = file.name.endsWith('.mp3') ? file.name.replace('.mp3', '') : file.name.replace('.wav', '');
+        const parts = fileName.split('_');
         if (parts.length === 2 && parts[0] && parts[1]) {
           return {
             file,
@@ -138,7 +139,7 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
 
         setCallData(prev => ({
             ...prev,
-            files: prev.files.map(f => f.file.name === callFile.file.name ? { ...f, transcript: transcriptionResult.transcript, audioDataUri } : f)
+            files: prev.files.map(f => f.file.name === callFile.file.name ? { ...f, transcript: transcriptionResult.transcript, audioDataUri, words: transcriptionResult.words, sentiment: transcriptionResult.sentiment } : f)
         }));
         setTranscribedFiles(prev => [...prev, callFile.file.name]);
         return { ...callFile, transcript: transcriptionResult.transcript };
@@ -285,7 +286,7 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
                                         <Input
                                             id="audioFiles"
                                             type="file"
-                                            accept=".mp3"
+                                            accept=".mp3,.wav"
                                             multiple
                                             className="sr-only"
                                             onChange={handleFileChange}
@@ -293,7 +294,7 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
                                     </label>
                                     <p className="pl-1">or drag and drop</p>
                                 </div>
-                                <p className="text-xs text-muted-foreground">.mp3 files in 'AgentName_ApplicantID.mp3' format</p>
+                                <p className="text-xs text-muted-foreground">.mp3, .wav files in 'AgentName_ApplicantID' format</p>
                             </div>
                         </div>
                     </FormControl>

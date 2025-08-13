@@ -23,6 +23,13 @@ export type TranscribeAudioInput = z.infer<typeof TranscribeAudioInputSchema>;
 
 const TranscribeAudioOutputSchema = z.object({
   transcript: z.string().describe('The transcribed text of the audio file.'),
+  words: z.array(z.object({
+    text: z.string(),
+    start: z.number(),
+    end: z.number(),
+    speaker: z.string().nullable(),
+  })).describe('Word-level timestamps and speaker labels.'),
+  sentiment: z.string().describe('Overall sentiment of the call.'),
 });
 export type TranscribeAudioOutput = z.infer<typeof TranscribeAudioOutputSchema>;
 
@@ -43,14 +50,45 @@ const transcribeAudioFlow = ai.defineFlow(
 
     const transcript = await client.transcripts.transcribe({
       audio: audioDataUri,
+      speaker_labels: true,
+      sentiment_analysis: true,
     });
 
     if (transcript.status === 'error') {
       throw new Error(`Transcription failed: ${transcript.error}`);
     }
 
+    const words = (transcript.words || []).map(word => ({
+      text: word.text,
+      start: word.start,
+      end: word.end,
+      speaker: word.speaker,
+    }));
+
+    const overallSentiment = transcript.sentiment_analysis_results?.reduce(
+      (acc, result) => {
+        if (result.sentiment === 'POSITIVE') acc.positive++;
+        else if (result.sentiment === 'NEGATIVE') acc.negative++;
+        else acc.neutral++;
+        return acc;
+      },
+      { positive: 0, negative: 0, neutral: 0 }
+    );
+
+    let sentiment = 'NEUTRAL';
+    if(overallSentiment) {
+        if (overallSentiment.positive > overallSentiment.negative && overallSentiment.positive > overallSentiment.neutral) {
+            sentiment = 'POSITIVE';
+        } else if (overallSentiment.negative > overallSentiment.positive && overallSentiment.negative > overallSentiment.neutral) {
+            sentiment = 'NEGATIVE';
+        }
+    }
+
+
     return {
       transcript: transcript.text || '',
+      words: words,
+      sentiment: sentiment,
     };
   }
 );
