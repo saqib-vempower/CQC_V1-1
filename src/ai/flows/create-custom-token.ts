@@ -19,6 +19,14 @@ const getAdminApp = (): App => {
     if (getApps().length) {
         return getApps()[0]!;
     }
+    // In a deployed environment, GOOGLE_CREDENTIALS should be set.
+    if (process.env.GOOGLE_CREDENTIALS) {
+        const serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+        return initializeApp({
+            credential: credential.cert(serviceAccount),
+        });
+    }
+    // Fallback for local development or environments without the variable set.
     return initializeApp();
 };
 
