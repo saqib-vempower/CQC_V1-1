@@ -45,7 +45,7 @@ export default function HomePage() {
                             <LayoutDashboard className="w-8 h-8 text-primary" />
                         </div>
                         <CardDescription className="pt-2 text-left">
-                            View all analyzed call records, check agent performance metrics, and export data.
+                           View audited call recordings, suggestions for agents to improve, and performance metrics.
                         </CardDescription>
                     </CardHeader>
                 </Card>
