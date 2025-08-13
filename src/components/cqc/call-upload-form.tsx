@@ -279,7 +279,7 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a domain" />
-                        </Trigger>
+                        </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {domains.map(domain => (
