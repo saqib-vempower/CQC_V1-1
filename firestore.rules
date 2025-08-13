@@ -1,25 +1,24 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // By default, deny all reads and writes
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
-    // Allow logged-in users to read their own document in 'allowedUsers'
-    // This is used by the client to check roles for UI purposes.
+    // Allow logged-in users to read their own document in allowedUsers
+    // This is used by the frontend to determine roles.
     match /allowedUsers/{email} {
-       allow read: if request.auth != null && request.auth.token.email == email;
-       allow write: if false; // Only allow writes from server-side admin SDK
+      allow read: if request.auth != null && request.auth.token.email == email;
+      allow write: if false; // Nobody can write to this from the client
     }
-
-    // Allow admins/reviewers to read signup requests
-    match /signupRequests/{docId} {
-      allow read: if request.auth != null && get(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email)).data.role in ['admin', 'qa_reviewer'];
-      allow write: if false; // Only allow writes from server-side admin SDK
-    }
-
-    // Allow authenticated server-side processes to write call records
+    
+    // Allow any authenticated user to read from the calls collection
     match /calls/{callId} {
-      allow read: if request.auth != null && get(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email)).data.role in ['admin', 'qa_reviewer'];
-      allow write: if false; // Block client-side writes
+        allow read: if request.auth != null;
+        allow write: if false; // Only backend can write
     }
   }
 }
