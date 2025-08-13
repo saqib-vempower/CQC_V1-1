@@ -7,14 +7,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, UploadCloud, FileCheck2, FileX2, ChevronsRight } from 'lucide-react';
+import { Calendar as CalendarIcon, UploadCloud, FileCheck2, ChevronsRight } from 'lucide-react';
 import type { CallData, CallFile } from '@/components/cqc/dashboard';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
