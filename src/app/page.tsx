@@ -16,8 +16,7 @@ export default function Home() {
       setUser(currentUser);
       setLoading(false);
       if (!currentUser) {
-        // Optionally, redirect to login page if not authenticated.
-        // For this setup, we will show the splash screen which has login/signup buttons.
+        // The splash screen will be shown, which has login/signup buttons.
       }
     });
 
@@ -25,7 +24,13 @@ export default function Home() {
   }, [router]);
 
   if (loading) {
-    return <div>Loading...</div>; // Or a proper skeleton loader
+    return (
+        <div className="flex flex-col min-h-screen bg-background">
+            <div className="flex-grow flex items-center justify-center">
+                <p>Loading...</p>
+            </div>
+        </div>
+    )
   }
 
   return user ? <Dashboard user={user} /> : <Splash />;

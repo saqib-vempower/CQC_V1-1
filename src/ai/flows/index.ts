@@ -5,3 +5,4 @@ export * from './store-call-record';
 export * from './validate-user';
 export * from './get-all-calls';
 export * from './export-to-sheets';
+export * from './score-rubric';
