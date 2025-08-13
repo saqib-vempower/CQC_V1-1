@@ -1,18 +1,14 @@
-
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Allow users to read their own document in the allowedUsers collection
-    // to check their role. The document ID is the user's email.
+    // Allow users to read their own document in allowedUsers collection
+    // This is used to check for roles (e.g., admin, qa_reviewer)
     match /allowedUsers/{userEmail} {
       allow read: if request.auth != null && request.auth.token.email == userEmail;
     }
 
-    // Server-side flows using the Admin SDK will bypass these rules.
-    // Client-side access to the 'calls' collection is not needed.
-    match /calls/{callId} {
+    // Disallow all other reads/writes by default on the client
+    match /{document=**} {
       allow read, write: if false;
     }
   }
