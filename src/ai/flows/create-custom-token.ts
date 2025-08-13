@@ -4,7 +4,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getAuth } from 'firebase-admin/auth';
-import { initializeApp, getApps, credential } from 'firebase-admin/app';
+import { initializeApp, getApps, App, credential } from 'firebase-admin/app';
 
 const CreateCustomTokenInputSchema = z.object({
   uid: z.string(),
@@ -15,14 +15,14 @@ const CreateCustomTokenOutputSchema = z.object({
 });
 
 // Helper function to initialize Firebase Admin SDK if not already done.
-const getAdminAuth = () => {
-  if (!getApps().length) {
-    initializeApp({
-      credential: credential.applicationDefault(),
+const getAdminApp = (): App => {
+    if (getApps().length) {
+        return getApps()[0]!;
+    }
+    return initializeApp({
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     });
-  }
-  return getAuth();
-}
+};
 
 export async function createCustomToken(input: z.infer<typeof CreateCustomTokenInputSchema>): Promise<z.infer<typeof CreateCustomTokenOutputSchema>> {
     return createCustomTokenFlow(input);
@@ -35,7 +35,8 @@ const createCustomTokenFlow = ai.defineFlow(
     outputSchema: CreateCustomTokenOutputSchema,
   },
   async ({ uid }) => {
-    const auth = getAdminAuth();
+    const app = getAdminApp();
+    const auth = getAuth(app);
     try {
         const customToken = await auth.createCustomToken(uid);
         return { token: customToken };

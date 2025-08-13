@@ -4,7 +4,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps, credential } from 'firebase-admin/app';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
 
 const ValidateUserInputSchema = z.object({
   email: z.string().email(),
@@ -16,14 +16,15 @@ const ValidateUserOutputSchema = z.object({
 });
 
 // Helper function to initialize Firebase Admin SDK if not already done.
-const getDb = () => {
-  if (!getApps().length) {
-    initializeApp({
-      credential: credential.applicationDefault(),
+const getAdminApp = (): App => {
+    if (getApps().length) {
+        return getApps()[0]!;
+    }
+    return initializeApp({
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     });
-  }
-  return getFirestore();
 };
+
 
 export async function validateUser(input: z.infer<typeof ValidateUserInputSchema>): Promise<z.infer<typeof ValidateUserOutputSchema>> {
     return validateUserFlow(input);
@@ -36,7 +37,8 @@ const validateUserFlow = ai.defineFlow(
     outputSchema: ValidateUserOutputSchema,
   },
   async ({ email }) => {
-    const db = getDb();
+    const app = getAdminApp();
+    const db = getFirestore(app);
     const allowedUsersCollection = db.collection('allowedUsers');
     const userDoc = await allowedUsersCollection.doc(email).get();
 
