@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
@@ -137,12 +136,14 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
             status: isValid ? 'pending' : 'error',
             errorMessage: isValid ? undefined : "Invalid filename. Must be 'AgentName_ApplicantID'.",
         };
-    }).filter(f => f.status !== 'error');
+    });
 
-    setProcessedFiles(filesToProcess);
+    setProcessedFiles(filesToProcess.filter(f => f.status !== 'error'));
     
-    for (let i = 0; i < filesToProcess.length; i++) {
-        const currentFile = filesToProcess[i];
+    const validFiles = filesToProcess.filter(f => f.status !== 'error');
+
+    for (let i = 0; i < validFiles.length; i++) {
+        const currentFile = validFiles[i];
         try {
             // 1. Transcribe
             updateFileStatus(i, 'transcribing');
@@ -198,7 +199,7 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
             updateFileStatus(i, 'error', message);
         }
         
-        setOverallProgress(((i + 1) / filesToProcess.length) * 100);
+        setOverallProgress(((i + 1) / validFiles.length) * 100);
     }
 
     toast({ title: 'Batch Auditing Complete', description: 'All files have been processed.' });
