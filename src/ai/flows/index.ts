@@ -1,9 +1,8 @@
+
 export * from './transcribe-audio';
 export * from './analyze-call-transcript';
 export * from './generate-coaching-tips';
 export * from './store-call-record';
-export * from './validate-user';
 export * from './get-all-calls';
 export * from './export-to-sheets';
 export * from './score-rubric';
-export * from './get-signup-requests';

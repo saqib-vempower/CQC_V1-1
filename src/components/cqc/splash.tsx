@@ -1,3 +1,4 @@
+
 'use client';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -19,9 +20,6 @@ export function Splash() {
         <div className="flex gap-4">
           <Button asChild size="lg" variant="outline">
             <Link href="/login">Login</Link>
-          </Button>
-          <Button asChild size="lg" variant="outline">
-            <Link href="/signup">Sign Up</Link>
           </Button>
         </div>
       </main>
