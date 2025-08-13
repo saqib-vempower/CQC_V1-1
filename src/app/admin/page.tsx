@@ -14,7 +14,7 @@ import type { StoredCallRecord } from '@/ai/flows/get-all-calls';
 export default function AdminPage() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
-    const [isAdmin, setIsAdmin] = useState(false);
+    const [isAuthorized, setIsAuthorized] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -25,21 +25,25 @@ export default function AdminPage() {
             return;
         }
 
-        const checkAdminRole = async () => {
+        const checkRole = async () => {
             if (user) {
                 const userDocRef = doc(db, 'allowedUsers', user.email!);
                 const userDoc = await getDoc(userDocRef);
-                if (userDoc.exists() && userDoc.data().role === 'admin') {
-                    setIsAdmin(true);
+                if (userDoc.exists()) {
+                    const userRole = userDoc.data().role;
+                    if (userRole === 'admin' || userRole === 'qa_reviewer') {
+                        setIsAuthorized(true);
+                    } else {
+                        router.push('/');
+                    }
                 } else {
-                    // If not an admin, redirect to the main dashboard
                     router.push('/');
                 }
             }
             setLoading(false);
         };
 
-        checkAdminRole();
+        checkRole();
     }, [user, authLoading, router]);
 
     if (loading || authLoading) {
@@ -53,13 +57,13 @@ export default function AdminPage() {
         )
     }
 
-    if (!isAdmin) {
+    if (!isAuthorized) {
         // This is a fallback, but the redirect should have already happened.
         return (
              <div className="flex flex-col min-h-screen bg-background">
                 <Header />
                 <div className="flex-grow flex items-center justify-center">
-                    <p>Access Denied. You are not an administrator.</p>
+                    <p>Access Denied. You do not have permission to view this page.</p>
                 </div>
             </div>
         )

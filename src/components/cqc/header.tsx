@@ -14,28 +14,33 @@ type HeaderProps = {
 }
 
 export function Header({ user }: HeaderProps) {
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [canViewDashboard, setCanViewDashboard] = useState(false);
 
   useEffect(() => {
-    const checkAdminRole = async () => {
+    const checkRole = async () => {
       if (user) {
         try {
           const userDocRef = doc(db, 'allowedUsers', user.email!);
           const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists() && userDoc.data().role === 'admin') {
-            setIsAdmin(true);
+          if (userDoc.exists()) {
+            const userRole = userDoc.data().role;
+            if (userRole === 'admin' || userRole === 'qa_reviewer') {
+                setCanViewDashboard(true);
+            } else {
+                setCanViewDashboard(false);
+            }
           } else {
-            setIsAdmin(false);
+            setCanViewDashboard(false);
           }
         } catch (error) {
-            console.error("Failed to check admin role", error);
-            setIsAdmin(false);
+            console.error("Failed to check user role", error);
+            setCanViewDashboard(false);
         }
       } else {
-        setIsAdmin(false);
+        setCanViewDashboard(false);
       }
     };
-    checkAdminRole();
+    checkRole();
   }, [user]);
 
   const handleSignOut = async () => {
@@ -57,11 +62,11 @@ export function Header({ user }: HeaderProps) {
           {user && (
             <div className='flex items-center gap-4'>
               <span className='text-sm text-muted-foreground'>Welcome, {user.email}</span>
-              {isAdmin && (
+              {canViewDashboard && (
                 <Button variant="outline" size="sm" asChild>
                   <Link href="/admin">
                     <ShieldCheck className="mr-2 h-4 w-4" />
-                    Admin
+                    Dashboard
                   </Link>
                 </Button>
               )}
@@ -75,4 +80,3 @@ export function Header({ user }: HeaderProps) {
     </header>
   );
 }
-
