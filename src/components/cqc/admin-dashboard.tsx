@@ -174,6 +174,7 @@ export function AdminDashboard() {
                                 <TableRow>
                                     <TableHead>Email</TableHead>
                                     <TableHead>Attempted On</TableHead>
+                                    <TableHead></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -181,6 +182,9 @@ export function AdminDashboard() {
                                     <TableRow key={req.id}>
                                         <TableCell className="font-medium">{req.email}</TableCell>
                                         <TableCell>{format(new Date(req.timestamp), 'PPP p')}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="outline" size="sm">Add User</Button>
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

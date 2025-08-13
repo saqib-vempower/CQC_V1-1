@@ -11,7 +11,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { initializeApp, getApps, App } from 'firebase-admin/app';
 import { credential } from 'firebase-admin';
 
@@ -66,7 +66,7 @@ const validateUserFlow = ai.defineFlow(
     const signupRequestsCollection = db.collection('signupRequests');
     await signupRequestsCollection.add({
       email: normalizedEmail,
-      timestamp: new Date(),
+      timestamp: FieldValue.serverTimestamp(),
     });
 
     return {
