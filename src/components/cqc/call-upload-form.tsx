@@ -111,7 +111,9 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
   const updateFileStatus = (index: number, status: FileStatus, errorMessage?: string) => {
       setProcessedFiles(prev => {
           const newFiles = [...prev];
-          newFiles[index] = { ...newFiles[index], status, errorMessage };
+          if (newFiles[index]) {
+            newFiles[index] = { ...newFiles[index], status, errorMessage };
+          }
           return newFiles;
       });
   };
@@ -146,30 +148,27 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
 
     for (let i = 0; i < validFilesToProcess.length; i++) {
         const currentFile = validFilesToProcess[i];
-        const overallIndex = processedFiles.findIndex(pf => pf.file.name === currentFile.file.name);
+        
+        const originalIndex = filesToProcess.findIndex(pf => pf.file.name === currentFile.file.name);
 
         try {
-            // 1. Transcribe
-            updateFileStatus(i, 'transcribing');
+            updateFileStatus(originalIndex, 'transcribing');
             const audioDataUri = await toBase64(currentFile.file);
             const transcriptionResult = await transcribeAudio({ audioDataUri });
             if (!transcriptionResult || !transcriptionResult.transcript) {
                 throw new Error('Transcription failed to produce a result.');
             }
 
-            // 2. Score Rubric
-            updateFileStatus(i, 'scoring');
+            updateFileStatus(originalIndex, 'scoring');
             const scoringResult = await scoreRubric({ transcript: transcriptionResult.transcript });
 
-            // 3. Analyze
-            updateFileStatus(i, 'analyzing');
+            updateFileStatus(originalIndex, 'analyzing');
             const analysisResult = await analyzeCallTranscript({
                 transcript: transcriptionResult.transcript,
                 audioMetrics: "N/A",
                 rubricScores: JSON.stringify(scoringResult.rubricScores),
             });
 
-            // 4. Generate Tips
             const coachingTipsResult = await generateCoachingTips({
                 rubricScores: scoringResult.rubricScores,
                 transcript: transcriptionResult.transcript,
@@ -179,7 +178,6 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
                 callDate: values.callDate ? format(values.callDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
             });
             
-            // 5. Store Record
             await storeCallRecord({
                 userId: user.uid,
                 universityName: values.universityName,
@@ -195,12 +193,12 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
                 coachingTips: coachingTipsResult.coachingTips,
             });
 
-            updateFileStatus(i, 'complete');
+            updateFileStatus(originalIndex, 'complete');
 
         } catch (error) {
             console.error(`Failed processing ${currentFile.file.name}:`, error);
             const message = error instanceof Error ? error.message : 'An unknown error occurred.';
-            updateFileStatus(i, 'error', message);
+            updateFileStatus(originalIndex, 'error', message);
         }
         
         setOverallProgress(((i + 1) / validFilesToProcess.length) * 100);
