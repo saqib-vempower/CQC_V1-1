@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
@@ -138,12 +139,15 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
         };
     });
 
-    setProcessedFiles(filesToProcess.filter(f => f.status !== 'error'));
+    const validFilesToProcess = filesToProcess.filter(f => f.status !== 'error');
+    const invalidFiles = filesToProcess.filter(f => f.status === 'error');
     
-    const validFiles = filesToProcess.filter(f => f.status !== 'error');
+    setProcessedFiles([...validFilesToProcess, ...invalidFiles]);
 
-    for (let i = 0; i < validFiles.length; i++) {
-        const currentFile = validFiles[i];
+    for (let i = 0; i < validFilesToProcess.length; i++) {
+        const currentFile = validFilesToProcess[i];
+        const overallIndex = processedFiles.findIndex(pf => pf.file.name === currentFile.file.name);
+
         try {
             // 1. Transcribe
             updateFileStatus(i, 'transcribing');
@@ -161,7 +165,7 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
             updateFileStatus(i, 'analyzing');
             const analysisResult = await analyzeCallTranscript({
                 transcript: transcriptionResult.transcript,
-                audioMetrics: "N/A", // No manual input anymore
+                audioMetrics: "N/A",
                 rubricScores: JSON.stringify(scoringResult.rubricScores),
             });
 
@@ -169,7 +173,7 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
             const coachingTipsResult = await generateCoachingTips({
                 rubricScores: scoringResult.rubricScores,
                 transcript: transcriptionResult.transcript,
-                timestamps: [], // No manual input
+                timestamps: [],
                 universityName: values.universityName,
                 domain: values.domain,
                 callDate: values.callDate ? format(values.callDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
@@ -199,7 +203,7 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
             updateFileStatus(i, 'error', message);
         }
         
-        setOverallProgress(((i + 1) / validFiles.length) * 100);
+        setOverallProgress(((i + 1) / validFilesToProcess.length) * 100);
     }
 
     toast({ title: 'Batch Auditing Complete', description: 'All files have been processed.' });
@@ -228,7 +232,6 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
       };
       return map[status];
   };
-
 
   return (
     <Card className="max-w-2xl mx-auto shadow-lg">
@@ -406,7 +409,7 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
                                {file.errorMessage && <p className="text-xs text-destructive">{file.errorMessage}</p>}
                              </div>
                            </div>
-                           <Badge variant={file.status === 'complete' ? 'default' : 'secondary'} className={cn(file.status === 'complete' && 'bg-green-600')}>{getStatusText(file.status)}</Badge>
+                           <Badge variant={file.status === 'complete' ? 'default' : file.status === 'error' ? 'destructive' : 'secondary'} className={cn(file.status === 'complete' && 'bg-green-600')}>{getStatusText(file.status)}</Badge>
                         </div>
                     ))}
                 </div>
