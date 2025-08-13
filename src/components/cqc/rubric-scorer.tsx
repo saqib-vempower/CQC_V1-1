@@ -14,6 +14,7 @@ import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
+import { Textarea } from '../ui/textarea';
 
 const rubricItems = [
   'Opening', 'Active Listening', 'Problem Solving', 'Professionalism', 'Closing'
@@ -32,6 +33,8 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
     rubricItems.forEach(item => initialScores[item] = 3);
     return initialScores;
   });
+  const [audioMetrics, setAudioMetrics] = useState(callData.audioMetrics || '');
+  const [timestamps, setTimestamps] = useState(callData.timestamps || '');
   const { toast } = useToast();
 
   const handleScoreChange = (item: string, value: number[]) => {
@@ -52,15 +55,20 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
   async function onSubmit() {
     setIsLoading(true);
     try {
-      setCallData(prev => ({ ...prev, rubricScores: scores }));
+      setCallData(prev => ({ 
+        ...prev, 
+        rubricScores: scores,
+        audioMetrics,
+        timestamps 
+      }));
       
       const analysisResult = await analyzeCallTranscript({
         transcript: callData.transcript,
-        audioMetrics: callData.audioMetrics,
+        audioMetrics: audioMetrics,
         rubricScores: JSON.stringify(scores),
       });
 
-      const parsedTimestamps = parseTimestamps(callData.timestamps);
+      const parsedTimestamps = parseTimestamps(timestamps);
 
       const coachingTipsResult = await generateCoachingTips({
         rubricScores: scores,
@@ -134,6 +142,31 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
 
       </CardHeader>
       <CardContent className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <Label htmlFor='audioMetrics'>Audio Metrics (Optional)</Label>
+                <Textarea
+                    id="audioMetrics"
+                    placeholder="Enter audio metrics like pauses, holds, audio quality scores..."
+                    className="resize-none mt-2"
+                    value={audioMetrics}
+                    onChange={(e) => setAudioMetrics(e.target.value)}
+                />
+            </div>
+            <div>
+                <Label htmlFor='timestamps'>Notable Timestamps (Optional)</Label>
+                <Textarea
+                    id="timestamps"
+                    placeholder="e.g. Long pause: 00:32-00:40&#10;Agent interruption: 01:15-01:17"
+                    className="resize-none mt-2"
+                    value={timestamps}
+                    onChange={(e) => setTimestamps(e.target.value)}
+                />
+            </div>
+        </div>
+
+        <Separator />
+
         <div className="space-y-6">
           {rubricItems.map(item => (
             <div key={item} className="grid gap-4">

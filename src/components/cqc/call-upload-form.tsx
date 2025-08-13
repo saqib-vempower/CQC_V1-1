@@ -1,7 +1,7 @@
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -63,8 +62,6 @@ const formSchema = z.object({
         (files) => files.every((file) => file.name.endsWith('.mp3')),
         'All files must be .mp3 format.'
     ),
-  audioMetrics: z.string().optional(),
-  timestamps: z.string().optional(),
 });
 
 type CallUploadFormProps = {
@@ -86,8 +83,6 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
       domain: callData.domain || '',
       callDate: callData.callDate,
       audioFiles: [],
-      audioMetrics: callData.audioMetrics || '',
-      timestamps: callData.timestamps || '',
     },
   });
 
@@ -128,8 +123,6 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
       universityName: values.universityName,
       domain: values.domain,
       callDate: values.callDate,
-      audioMetrics: values.audioMetrics ?? '',
-      timestamps: values.timestamps ?? '',
     }));
 
     const validFiles = callData.files.filter(f => f.status === 'valid');
@@ -366,41 +359,6 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
               </AlertDescription>
             </Alert>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                control={form.control}
-                name="audioMetrics"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Audio Metrics (Optional)</FormLabel>
-                    <FormControl>
-                        <Textarea
-                        placeholder="Enter audio metrics like pauses, holds, audio quality scores..."
-                        className="resize-none"
-                        {...field}
-                        />
-                    </FormControl>
-                    </FormItem>
-                )}
-                />
-                <FormField
-                control={form.control}
-                name="timestamps"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Notable Timestamps (Optional)</FormLabel>
-                    <FormControl>
-                        <Textarea
-                        placeholder="e.g. Long pause: 00:32-00:40&#10;Agent interruption: 01:15-01:17"
-                        className="resize-none"
-                        {...field}
-                        />
-                    </FormControl>
-                    </FormItem>
-                )}
-                />
-            </div>
-
             <Button type="submit" disabled={isTranscribing || callData.files.filter(f => f.status === 'valid').length === 0} className="w-full">
               {isTranscribing ? (
                 <>
