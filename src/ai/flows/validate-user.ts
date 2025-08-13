@@ -20,14 +20,24 @@ const getAdminApp = (): App => {
     if (getApps().length) {
         return getApps()[0]!;
     }
-     // In a deployed environment, GOOGLE_CREDENTIALS should be set.
-    if (process.env.GOOGLE_CREDENTIALS) {
-        const serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+     // In a deployed environment, GOOGLE_APPLICATION_CREDENTIALS might be set.
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
         return initializeApp({
-            credential: credential.cert(serviceAccount),
+            credential: credential.applicationDefault(),
         });
     }
-    // Fallback for local development or environments without the variable set.
+    // Check for explicit service account credentials in env.
+    if (process.env.GOOGLE_CREDENTIALS) {
+        try {
+            const serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+            return initializeApp({
+                credential: credential.cert(serviceAccount),
+            });
+        } catch (e) {
+            console.error("Failed to parse GOOGLE_CREDENTIALS:", e);
+        }
+    }
+    // Fallback for local development or environments without explicit credentials.
     return initializeApp();
 };
 

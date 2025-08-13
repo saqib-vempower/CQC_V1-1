@@ -52,11 +52,11 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
         const { isValid, userId } = await validateUser({ email: values.email });
-        if (!isValid) {
+        if (!isValid || !userId) {
             throw new Error('Please contact admin to use the app.');
         }
 
-        const { token } = await createCustomToken({ uid: userId! });
+        const { token } = await createCustomToken({ uid: userId });
 
         await signInWithCustomToken(auth, token);
         
@@ -67,7 +67,7 @@ export default function LoginPage() {
         router.push('/home');
 
     } catch (error) {
-      console.error(error);
+      console.error("Login Error:", error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
       toast({
         variant: 'destructive',

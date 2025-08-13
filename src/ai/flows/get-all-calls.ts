@@ -11,7 +11,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps } from 'firebase-admin/app';
+import { initializeApp, getApps, App, credential } from 'firebase-admin/app';
 
 // This schema should match the structure of what's saved in store-call-record.ts
 const StoredCallRecordSchema = z.object({
@@ -47,12 +47,27 @@ const GetAllCallsOutputSchema = z.object({
 });
 
 // Helper function to initialize Firebase Admin SDK.
-const getDb = () => {
-  if (!getApps().length) {
-    initializeApp();
-  }
-  return getFirestore();
-}
+const getAdminApp = (): App => {
+    if (getApps().length) {
+        return getApps()[0]!;
+    }
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        return initializeApp({
+            credential: credential.applicationDefault(),
+        });
+    }
+    if (process.env.GOOGLE_CREDENTIALS) {
+        try {
+            const serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+            return initializeApp({
+                credential: credential.cert(serviceAccount),
+            });
+        } catch (e) {
+            console.error("Failed to parse GOOGLE_CREDENTIALS:", e);
+        }
+    }
+    return initializeApp();
+};
 
 export async function getAllCalls(): Promise<{ calls: StoredCallRecord[] }> {
   return getAllCallsFlow();
@@ -65,7 +80,8 @@ const getAllCallsFlow = ai.defineFlow(
     outputSchema: GetAllCallsOutputSchema,
   },
   async () => {
-    const db = getDb();
+    const app = getAdminApp();
+    const db = getFirestore(app);
     const callsSnapshot = await db.collection('calls').get();
     
     const calls: StoredCallRecord[] = [];

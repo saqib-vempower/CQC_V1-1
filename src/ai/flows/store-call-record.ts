@@ -11,7 +11,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps } from 'firebase-admin/app';
+import { initializeApp, getApps, App, credential } from 'firebase-admin/app';
 
 const StoreCallRecordInputSchema = z.object({
   userId: z.string().describe('The ID of the user who performed the analysis.'),
@@ -40,12 +40,27 @@ const StoreCallRecordInputSchema = z.object({
 export type StoreCallRecordInput = z.infer<typeof StoreCallRecordInputSchema>;
 
 // Helper function to initialize Firebase Admin SDK.
-const getDb = () => {
-  if (!getApps().length) {
-    initializeApp();
-  }
-  return getFirestore();
-}
+const getAdminApp = (): App => {
+    if (getApps().length) {
+        return getApps()[0]!;
+    }
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        return initializeApp({
+            credential: credential.applicationDefault(),
+        });
+    }
+    if (process.env.GOOGLE_CREDENTIALS) {
+        try {
+            const serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+            return initializeApp({
+                credential: credential.cert(serviceAccount),
+            });
+        } catch (e) {
+            console.error("Failed to parse GOOGLE_CREDENTIALS:", e);
+        }
+    }
+    return initializeApp();
+};
 
 export async function storeCallRecord(input: StoreCallRecordInput): Promise<{ id: string }> {
   return storeCallRecordFlow(input);
@@ -58,7 +73,8 @@ const storeCallRecordFlow = ai.defineFlow(
     outputSchema: z.object({ id: z.string() }),
   },
   async (data) => {
-    const db = getDb();
+    const app = getAdminApp();
+    const db = getFirestore(app);
     const callRecord = {
       ...data,
       createdAt: new Date(),

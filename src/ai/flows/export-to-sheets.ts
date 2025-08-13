@@ -11,6 +11,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { google } from 'googleapis';
 import type { StoredCallRecord } from './get-all-calls';
+import { credential } from 'firebase-admin/app';
 
 const ExportToSheetsInputSchema = z.object({
   records: z.array(z.any()).describe("An array of call records to export."),
@@ -29,15 +30,25 @@ const SHEET_IDS: Record<string, string | undefined> = {
 
 // Helper function to get authenticated Google Sheets client
 const getSheetsClient = () => {
-    if (!process.env.GOOGLE_CREDENTIALS) {
-        throw new Error("GOOGLE_CREDENTIALS environment variable not set.");
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        const auth = new google.auth.GoogleAuth({
+            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+        return google.sheets({ version: 'v4', auth });
     }
-    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-    const auth = new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-    return google.sheets({ version: 'v4', auth });
+    if (process.env.GOOGLE_CREDENTIALS) {
+        try {
+            const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+            const auth = new google.auth.GoogleAuth({
+                credentials,
+                scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+            });
+            return google.sheets({ version: 'v4', auth });
+        } catch (e) {
+            console.error("Failed to parse GOOGLE_CREDENTIALS for Sheets:", e);
+        }
+    }
+    throw new Error("Google credentials are not set up correctly.");
 };
 
 export async function exportToSheets(input: ExportToSheetsInput): Promise<{ success: boolean; message: string; }> {
