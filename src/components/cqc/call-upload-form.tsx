@@ -113,7 +113,7 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
     reader.onerror = error => reject(error);
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsTranscribing(true);
     setTranscribedFiles([]);
     
