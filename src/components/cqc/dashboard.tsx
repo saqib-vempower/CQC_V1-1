@@ -65,15 +65,18 @@ export function Dashboard({ user }: DashboardProps) {
 
   const handleReset = () => {
     setStep(1);
-    setCallData({
-      universityName: '',
-      domain: '',
-      files: [],
-      audioMetrics: '',
-      timestamps: '',
-      transcript: '',
-      rubricScores: {},
-    });
+    // Do not reset university and domain
+    setCallData(prev => ({
+        ...prev,
+        files: [],
+        audioMetrics: '',
+        timestamps: '',
+        transcript: '',
+        rubricScores: {},
+        analysis: undefined,
+        coachingTips: undefined,
+        analyzedFile: undefined,
+    }));
   };
 
   const handleSelectForAnalysis = (file: CallFile) => {

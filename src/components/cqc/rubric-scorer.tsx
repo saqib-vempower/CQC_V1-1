@@ -5,8 +5,9 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { analyzeCallTranscript } from '@/ai/flows/analyze-call-transcript';
 import { generateCoachingTips } from '@/ai/flows/generate-coaching-tips';
+import { storeCallRecord } from '@/ai/flows/store-call-record';
 import { FileAudio, Loader2, User, University } from 'lucide-react';
-import type { CallData } from '@/app/page';
+import type { CallData } from '@/components/cqc/dashboard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -15,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
 import { Textarea } from '../ui/textarea';
+import { useAuth } from '@/components/cqc/auth-provider';
 
 const rubricItems = [
   'Opening', 'Active Listening', 'Problem Solving', 'Professionalism', 'Closing'
@@ -28,6 +30,7 @@ type RubricScorerProps = {
 
 export function RubricScorer({ callData, setStep, setCallData }: RubricScorerProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
   const [scores, setScores] = useState<Record<string, number>>(() => {
     const initialScores: Record<string, number> = {};
     rubricItems.forEach(item => initialScores[item] = 3);
@@ -53,6 +56,15 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
   };
   
   async function onSubmit() {
+    if (!user) {
+        toast({
+            variant: 'destructive',
+            title: 'Authentication Error',
+            description: 'You must be logged in to save an analysis.',
+        });
+        return;
+    }
+
     setIsLoading(true);
     try {
       setCallData(prev => ({ 
@@ -82,6 +94,23 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
       if (!analysisResult || !coachingTipsResult) {
         throw new Error('Failed to get analysis or coaching tips.');
       }
+      
+      await storeCallRecord({
+        userId: user.uid,
+        universityName: callData.universityName,
+        domain: callData.domain,
+        callDate: callData.callDate ? format(callData.callDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
+        fileName: callData.analyzedFile?.file.name || 'unknown',
+        agentName: callData.analyzedFile?.agentName || 'unknown',
+        applicantId: callData.analyzedFile?.applicantId || 'unknown',
+        transcript: callData.transcript,
+        rubricScores: scores,
+        audioMetrics: audioMetrics,
+        timestamps: parsedTimestamps,
+        analysis: analysisResult,
+        coachingTips: coachingTipsResult.coachingTips,
+        sentiment: callData.analyzedFile?.sentiment || 'NEUTRAL',
+      });
 
       setCallData(prev => ({
         ...prev,
@@ -90,8 +119,8 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
       }));
 
       toast({
-        title: "Analysis Complete",
-        description: "AI analysis and coaching tips have been generated.",
+        title: "Analysis Complete & Saved",
+        description: "AI analysis and coaching tips have been generated and saved to your records.",
       });
 
       setStep(3);
@@ -101,7 +130,7 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
       toast({
         variant: 'destructive',
         title: 'An error occurred',
-        description: error instanceof Error ? error.message : 'Could not analyze the call. Please try again.',
+        description: error instanceof Error ? error.message : 'Could not analyze and save the call. Please try again.',
       });
     } finally {
       setIsLoading(false);
