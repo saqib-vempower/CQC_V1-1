@@ -30,6 +30,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Header } from '@/components/cqc/header';
+import { validateUser } from '@/ai/flows/validate-user';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -52,6 +53,20 @@ export default function SignupPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
+      // Step 1: Validate if the user is allowed to sign up.
+      const validationResult = await validateUser({ email: values.email });
+
+      if (!validationResult.isAllowed) {
+        toast({
+          variant: 'destructive',
+          title: 'Signup Failed',
+          description: 'This email address is not authorized to create an account.',
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Step 2: If allowed, create the user in Firebase Auth.
       await createUserWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: 'Account Created',

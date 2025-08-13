@@ -1,0 +1,29 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+  
+    // Allow read-only access to allowed users list for any authenticated user
+    match /allowedUsers/{email} {
+      allow read: if request.auth != null;
+      allow write: if false; // Disallow client-side writes
+    }
+    
+    // Allow users to read and write their own call records
+    match /calls/{callId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Admins can read any call record
+    // This requires custom claims on the user's auth token, which needs to be set up on the backend.
+    // We can implement this in a later step.
+    // match /calls/{callId} {
+    //   allow read: if request.auth.token.admin == true;
+    // }
+
+    // By default, deny all other reads and writes
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

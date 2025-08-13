@@ -2,3 +2,4 @@ export * from './transcribe-audio';
 export * from './analyze-call-transcript';
 export * from './generate-coaching-tips';
 export * from './store-call-record';
+export * from './validate-user';
