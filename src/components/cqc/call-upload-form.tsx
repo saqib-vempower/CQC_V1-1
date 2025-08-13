@@ -351,13 +351,6 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
             )}
             
             <Separator />
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>Next Steps</AlertTitle>
-              <AlertDescription>
-                After uploading, you must transcribe the files. You can then select a transcribed call to proceed with scoring and analysis.
-              </AlertDescription>
-            </Alert>
             
             <Button type="submit" disabled={isTranscribing || callData.files.filter(f => f.status === 'valid').length === 0} className="w-full">
               {isTranscribing ? (
