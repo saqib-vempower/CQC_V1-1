@@ -62,7 +62,7 @@ export function Header({ user }: HeaderProps) {
           </div>
           {user && (
             <div className='flex items-center gap-4'>
-              <span className='text-sm text-muted-foreground'>Welcome, {user.email}</span>
+              <span className='text-sm text-muted-foreground'>Welcome!</span>
                 <Button variant="outline" size="sm" asChild>
                   <Link href="/home">
                     <Home className="mr-2 h-4 w-4" />

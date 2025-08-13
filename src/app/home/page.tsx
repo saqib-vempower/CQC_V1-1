@@ -33,7 +33,7 @@ export default function HomePage() {
       <Header user={user} />
       <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center">
         <div className="w-full max-w-4xl text-center mb-12">
-            <h1 className="text-4xl font-bold tracking-tight">Welcome, {user?.email}</h1>
+            <h1 className="text-4xl font-bold tracking-tight">Welcome!</h1>
             <p className="text-muted-foreground mt-2">What would you like to do today?</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
