@@ -7,14 +7,25 @@ import { RubricScorer } from '@/components/cqc/rubric-scorer';
 import { AnalysisDisplay } from '@/components/cqc/analysis-display';
 import { Stepper } from '@/components/cqc/stepper';
 
+export type CallFile = {
+  file: File;
+  agentName: string;
+  applicantId: string;
+  status: 'valid' | 'invalid';
+  audioDataUri?: string;
+  transcript?: string;
+};
+
 export type CallData = {
   universityName: string;
   domain: string;
   callDate?: Date;
-  audioFile?: File;
-  audioDataUri?: string;
+  // This will now be an array of processed files
+  files: CallFile[];
+  // The following fields might become specific to a selected call for analysis
   audioMetrics: string;
   timestamps: string;
+  // This will hold the transcript of the currently analyzed call
   transcript: string;
   rubricScores: Record<string, number>;
   analysis?: {
@@ -22,6 +33,8 @@ export type CallData = {
     feedback: string;
   };
   coachingTips?: string[];
+  // Keep track of which file is being scored/analyzed
+  analyzedFile?: CallFile
 };
 
 export default function Home() {
@@ -29,6 +42,7 @@ export default function Home() {
   const [callData, setCallData] = useState<CallData>({
     universityName: '',
     domain: '',
+    files: [],
     audioMetrics: '',
     timestamps: '',
     transcript: '',
@@ -40,12 +54,22 @@ export default function Home() {
     setCallData({
       universityName: '',
       domain: '',
+      files: [],
       audioMetrics: '',
       timestamps: '',
       transcript: '',
       rubricScores: {},
     });
   };
+
+  const handleSelectForAnalysis = (file: CallFile) => {
+    setCallData(prev => ({
+        ...prev,
+        analyzedFile: file,
+        transcript: file.transcript || '',
+    }));
+    setStep(2);
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -54,7 +78,12 @@ export default function Home() {
         <Stepper currentStep={step} />
         <div className="mt-8">
           {step === 1 && (
-            <CallUploadForm setStep={setStep} setCallData={setCallData} />
+            <CallUploadForm 
+              setStep={setStep} 
+              setCallData={setCallData}
+              callData={callData}
+              onSelectForAnalysis={handleSelectForAnalysis}
+            />
           )}
           {step === 2 && (
             <RubricScorer

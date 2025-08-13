@@ -1,15 +1,15 @@
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Loader2, UploadCloud } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, UploadCloud, FileCheck2, FileX2, ChevronsRight, Info } from 'lucide-react';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
-import type { CallData } from '@/app/page';
-import { Button, buttonVariants } from '@/components/ui/button';
+import type { CallData, CallFile } from '@/app/page';
+import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
   Form,
@@ -33,6 +33,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '../ui/badge';
+import { Separator } from '../ui/separator';
 
 const universities = [
   { abbr: 'CUA', name: 'Catholic University of America' },
@@ -49,11 +52,17 @@ const formSchema = z.object({
   universityName: z.string().min(2, { message: 'University name is required.' }),
   domain: z.string().min(2, { message: 'Domain is required.' }),
   callDate: z.date().optional(),
-  audioFile: z
-    .custom<FileList>()
-    .refine((files) => files?.length === 1, 'Audio file is required.')
-    .refine((files) => files?.[0]?.type.startsWith('audio/'), 'Must be an audio file.')
-    .refine((files) => files?.[0]?.size <= 10 * 1024 * 1024, 'Max file size is 10MB.'),
+  audioFiles: z
+    .array(z.custom<File>())
+    .refine((files) => files.length > 0, 'At least one audio file is required.')
+    .refine(
+      (files) => files.every((file) => file.type.startsWith('audio/')),
+      'All files must be audio files.'
+    )
+    .refine(
+        (files) => files.every((file) => file.name.endsWith('.mp3')),
+        'All files must be .mp3 format.'
+    ),
   audioMetrics: z.string().optional(),
   timestamps: z.string().optional(),
 });
@@ -61,21 +70,48 @@ const formSchema = z.object({
 type CallUploadFormProps = {
   setStep: Dispatch<SetStateAction<number>>;
   setCallData: Dispatch<SetStateAction<CallData>>;
+  callData: CallData;
+  onSelectForAnalysis: (file: CallFile) => void;
 };
 
-export function CallUploadForm({ setStep, setCallData }: CallUploadFormProps) {
-  const [isLoading, setIsLoading] = useState(false);
+export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnalysis }: CallUploadFormProps) {
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcribedFiles, setTranscribedFiles] = useState<string[]>([]);
   const { toast } = useToast();
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      universityName: '',
-      domain: '',
-      audioMetrics: '',
-      timestamps: '',
+      universityName: callData.universityName || '',
+      domain: callData.domain || '',
+      callDate: callData.callDate,
+      audioFiles: [],
+      audioMetrics: callData.audioMetrics || '',
+      timestamps: callData.timestamps || '',
     },
   });
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = event.target.files;
+    if (fileList) {
+      const files = Array.from(fileList);
+      const processedFiles: CallFile[] = files.map(file => {
+        const parts = file.name.replace('.mp3', '').split('_');
+        if (parts.length === 2 && parts[0] && parts[1]) {
+          return {
+            file,
+            agentName: parts[0],
+            applicantId: parts[1],
+            status: 'valid'
+          };
+        }
+        return { file, agentName: '', applicantId: '', status: 'invalid' };
+      });
+      form.setValue('audioFiles', files); // for validation
+      setCallData(prev => ({ ...prev, files: processedFiles }));
+    }
+  };
+  
   const toBase64 = (file: File) => new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -84,59 +120,64 @@ export function CallUploadForm({ setStep, setCallData }: CallUploadFormProps) {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true);
+    setIsTranscribing(true);
+    setTranscribedFiles([]);
+    
+    setCallData((prev) => ({
+      ...prev,
+      universityName: values.universityName,
+      domain: values.domain,
+      callDate: values.callDate,
+      audioMetrics: values.audioMetrics ?? '',
+      timestamps: values.timestamps ?? '',
+    }));
+
+    const validFiles = callData.files.filter(f => f.status === 'valid');
+
     try {
-      const audioFile = values.audioFile[0];
-      const audioDataUri = await toBase64(audioFile);
+        const transcriptionPromises = validFiles.map(async (callFile) => {
+        const audioDataUri = await toBase64(callFile.file);
+        const transcriptionResult = await transcribeAudio({ audioDataUri });
+        
+        if (!transcriptionResult || !transcriptionResult.transcript) {
+            throw new Error(`Transcription failed for ${callFile.file.name}.`);
+        }
 
-      setCallData((prev) => ({
-        ...prev,
-        universityName: values.universityName,
-        domain: values.domain,
-        callDate: values.callDate,
-        audioFile: audioFile,
-        audioDataUri: audioDataUri,
-        audioMetrics: values.audioMetrics ?? '',
-        timestamps: values.timestamps ?? '',
-      }));
-
-      const transcriptionResult = await transcribeAudio({ audioDataUri });
-
-      if (!transcriptionResult || !transcriptionResult.transcript) {
-        throw new Error('Transcription failed. The response did not contain a transcript.');
-      }
-      
-      setCallData((prev) => ({
-        ...prev,
-        transcript: transcriptionResult.transcript,
-      }));
-      
-      toast({
-        title: "Transcription Successful",
-        description: "The audio file has been transcribed.",
+        setCallData(prev => ({
+            ...prev,
+            files: prev.files.map(f => f.file.name === callFile.file.name ? { ...f, transcript: transcriptionResult.transcript, audioDataUri } : f)
+        }));
+        setTranscribedFiles(prev => [...prev, callFile.file.name]);
+        return { ...callFile, transcript: transcriptionResult.transcript };
       });
 
-      setStep(2);
+      await Promise.all(transcriptionPromises);
+
+      toast({
+        title: "All transcriptions complete!",
+        description: "You can now select a call to analyze.",
+      });
+
     } catch (error) {
       console.error(error);
       toast({
         variant: 'destructive',
-        title: 'An error occurred',
-        description: error instanceof Error ? error.message : 'Could not transcribe the audio. Please try again.',
+        title: 'An error occurred during transcription',
+        description: error instanceof Error ? error.message : 'Could not transcribe one or more files. Please try again.',
       });
     } finally {
-      setIsLoading(false);
+      setIsTranscribing(false);
     }
   }
-  
-  const fileRef = form.register("audioFile");
+
+  const { ref: fileRef, ...fileRest } = form.register("audioFiles");
 
   return (
-    <Card className="max-w-2xl mx-auto shadow-lg">
+    <Card className="max-w-4xl mx-auto shadow-lg">
       <CardHeader>
         <CardTitle className="font-headline text-xl">Upload Call Details</CardTitle>
         <CardDescription>
-          Start by uploading the call audio and providing some basic information.
+          Provide call information and upload one or more audio files for transcription.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -157,12 +198,12 @@ export function CallUploadForm({ setStep, setCallData }: CallUploadFormProps) {
                       </FormControl>
                       <SelectContent>
                         {universities.map(uni => (
-                          <SelectItem key={uni.abbr} value={uni.name}>
-                            <div>
-                              <span>{uni.abbr}</span>
-                              <span className="block text-xs text-muted-foreground">{uni.name}</span>
-                            </div>
-                          </SelectItem>
+                            <SelectItem key={uni.abbr} value={uni.name}>
+                                <div className="flex items-center">
+                                <span className="font-bold w-12">{uni.abbr}</span>
+                                <span className="text-xs text-muted-foreground">{uni.name}</span>
+                                </div>
+                            </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -236,86 +277,138 @@ export function CallUploadForm({ setStep, setCallData }: CallUploadFormProps) {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="audioFile"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Audio File</FormLabel>
-                  <FormControl>
-                    <div className="relative flex justify-center w-full h-32 px-6 pt-5 pb-6 border-2 border-dashed rounded-md border-border hover:border-primary transition-colors">
-                      <div className="space-y-1 text-center">
-                        <UploadCloud className="w-12 h-12 mx-auto text-muted-foreground" />
-                        <div className="flex text-sm text-muted-foreground items-center justify-center">
-                          <label htmlFor="audioFile" className={cn(buttonVariants({ variant: 'link', size: 'sm' }), "text-primary cursor-pointer")}>
-                            <span>Upload a file</span>
-                             <Input
-                                id="audioFile"
-                                type="file"
-                                accept="audio/*"
-                                className="sr-only"
-                                {...fileRef}
-                              />
-                          </label>
-                          <p className="pl-1">or drag and drop</p>
-                        </div>
-                         <p className="text-xs text-muted-foreground">{form.watch('audioFile')?.[0]?.name || 'Audio files up to 10MB'}</p>
-                      </div>
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             
             <FormField
               control={form.control}
-              name="audioMetrics"
-              render={({ field }) => (
+              name="audioFiles"
+              render={() => (
                 <FormItem>
-                  <FormLabel>Audio Metrics (Optional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Enter audio metrics like pauses, holds, audio quality scores..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    This data would typically be generated automatically by services like Assembly AI.
-                  </FormDescription>
-                  <FormMessage />
+                    <FormLabel>Audio Files</FormLabel>
+                    <FormControl>
+                        <div className="relative flex justify-center w-full h-32 px-6 pt-5 pb-6 border-2 border-dashed rounded-md border-border hover:border-primary transition-colors">
+                            <div className="space-y-1 text-center">
+                                <UploadCloud className="w-12 h-12 mx-auto text-muted-foreground" />
+                                <div className="flex text-sm text-muted-foreground items-center justify-center">
+                                    <label htmlFor="audioFiles" className={cn("text-primary cursor-pointer font-semibold")}>
+                                        <span>Upload files</span>
+                                        <Input
+                                            id="audioFiles"
+                                            type="file"
+                                            accept=".mp3"
+                                            multiple
+                                            className="sr-only"
+                                            onChange={handleFileChange}
+                                            {...fileRest}
+                                        />
+                                    </label>
+                                    <p className="pl-1">or drag and drop</p>
+                                </div>
+                                <p className="text-xs text-muted-foreground">.mp3 files in 'AgentName_ApplicantID.mp3' format</p>
+                            </div>
+                        </div>
+                    </FormControl>
+                    <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="timestamps"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notable Timestamps (Optional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="e.g. Long pause: 00:32-00:40&#10;Agent interruption: 01:15-01:17"
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    One event per line. This helps AI to generate more specific coaching tips.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" disabled={isLoading} className="w-full">
-              {isLoading ? (
+
+            {callData.files.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium mb-2">Uploaded Files:</h3>
+                <div className="space-y-2 rounded-md border">
+                    {callData.files.map((callFile, index) => (
+                        <div key={index} className="flex items-center p-3">
+                            <div className="flex-1">
+                                <p className="text-sm font-medium">{callFile.file.name}</p>
+                                {callFile.status === 'valid' ? (
+                                    <div className='flex gap-2 items-center'>
+                                        <FileCheck2 className="w-4 h-4 text-green-500" />
+                                        <p className="text-xs text-muted-foreground">
+                                            Agent: <span className="font-semibold text-foreground">{callFile.agentName}</span>, Applicant ID: <span className="font-semibold text-foreground">{callFile.applicantId}</span>
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className='flex gap-2 items-center'>
+                                      <FileX2 className="w-4 h-4 text-destructive" />
+                                      <p className="text-xs text-destructive">Invalid filename format</p>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="w-48 text-right">
+                                {isTranscribing && callFile.status === 'valid' && !transcribedFiles.includes(callFile.file.name) && (
+                                    <Badge variant="secondary" className="animate-pulse">
+                                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                        Transcribing...
+                                    </Badge>
+                                )}
+                                {transcribedFiles.includes(callFile.file.name) && callFile.transcript && (
+                                     <Button size="sm" onClick={() => onSelectForAnalysis(callFile)}>
+                                        Analyze
+                                        <ChevronsRight className="h-4 w-4 ml-2" />
+                                    </Button>
+                                )}
+                                {callFile.status === 'invalid' && (
+                                    <Badge variant="destructive">Invalid</Badge>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+              </div>
+            )}
+            
+            <Separator />
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertTitle>Next Steps</AlertTitle>
+              <AlertDescription>
+                After uploading, you must transcribe the files. You can then select a transcribed call to proceed with scoring and analysis.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                control={form.control}
+                name="audioMetrics"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Audio Metrics (Optional)</FormLabel>
+                    <FormControl>
+                        <Textarea
+                        placeholder="Enter audio metrics like pauses, holds, audio quality scores..."
+                        className="resize-none"
+                        {...field}
+                        />
+                    </FormControl>
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="timestamps"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Notable Timestamps (Optional)</FormLabel>
+                    <FormControl>
+                        <Textarea
+                        placeholder="e.g. Long pause: 00:32-00:40&#10;Agent interruption: 01:15-01:17"
+                        className="resize-none"
+                        {...field}
+                        />
+                    </FormControl>
+                    </FormItem>
+                )}
+                />
+            </div>
+
+            <Button type="submit" disabled={isTranscribing || callData.files.filter(f => f.status === 'valid').length === 0} className="w-full">
+              {isTranscribing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Transcribing...
+                  Transcribing {transcribedFiles.length}/{callData.files.filter(f => f.status === 'valid').length}...
                 </>
               ) : (
-                'Transcribe & Proceed'
+                `Transcribe ${callData.files.filter(f => f.status === 'valid').length} Valid File(s)`
               )}
             </Button>
           </form>

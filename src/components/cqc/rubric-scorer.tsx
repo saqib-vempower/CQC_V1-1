@@ -5,13 +5,15 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { analyzeCallTranscript } from '@/ai/flows/analyze-call-transcript';
 import { generateCoachingTips } from '@/ai/flows/generate-coaching-tips';
-import { Loader2 } from 'lucide-react';
+import { FileAudio, Loader2, User, University } from 'lucide-react';
 import type { CallData } from '@/app/page';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '../ui/badge';
+import { Separator } from '../ui/separator';
 
 const rubricItems = [
   'Opening', 'Active Listening', 'Problem Solving', 'Professionalism', 'Closing'
@@ -103,8 +105,33 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
       <CardHeader>
         <CardTitle className="font-headline text-xl">Score The Call</CardTitle>
         <CardDescription>
-          Use the rubric below to score the agent's performance on a scale of 1 to 5.
+          You are scoring the call for agent <Badge variant="outline">{callData.analyzedFile?.agentName}</Badge>. 
+          Use the rubric below to score performance on a scale of 1 to 5.
         </CardDescription>
+        <Separator className="!my-4" />
+        <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="flex items-center gap-2">
+                <FileAudio className="w-4 h-4 text-muted-foreground" />
+                <strong>File:</strong>
+                <span>{callData.analyzedFile?.file.name}</span>
+            </div>
+             <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-muted-foreground" />
+                <strong>Applicant ID:</strong>
+                <span>{callData.analyzedFile?.applicantId}</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <University className="w-4 h-4 text-muted-foreground" />
+                <strong>University:</strong>
+                <span>{callData.universityName}</span>
+            </div>
+             <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-muted-foreground" />
+                <strong>Domain:</strong>
+                <span>{callData.domain}</span>
+            </div>
+        </div>
+
       </CardHeader>
       <CardContent className="space-y-8">
         <div className="space-y-6">

@@ -1,7 +1,7 @@
 'use client';
 
 import { format } from 'date-fns';
-import { Download, FileText, Lightbulb, MessageSquareQuote, RotateCcw } from 'lucide-react';
+import { Download, FileText, Lightbulb, MessageSquareQuote, RotateCcw, User, University, FileAudio } from 'lucide-react';
 import type { CallData } from '@/app/page';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
@@ -16,19 +16,19 @@ type AnalysisDisplayProps = {
 };
 
 export function AnalysisDisplay({ callData, onReset }: AnalysisDisplayProps) {
-  const { analysis, coachingTips, transcript, universityName, domain, callDate, rubricScores } = callData;
+  const { analysis, coachingTips, transcript, universityName, domain, callDate, rubricScores, analyzedFile } = callData;
   
   const handleExport = () => {
     // This is a placeholder for a real export implementation
     const dataToExport = {
       ...callData,
-      audioFile: callData.audioFile?.name, // We don't export the whole file object
-      audioDataUri: 'omitted for brevity'
+      files: callData.files.map(f => ({...f, file: f.file.name, audioDataUri: 'omitted for brevity'})),
+      analyzedFile: callData.analyzedFile ? {...callData.analyzedFile, file: callData.analyzedFile.file.name, audioDataUri: 'omitted for brevity'} : undefined
     };
     const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(dataToExport, null, 2))}`;
     const link = document.createElement("a");
     link.href = jsonString;
-    link.download = `call_analysis_${universityName.replace(/\s+/g, '_')}_${new Date().toISOString()}.json`;
+    link.download = `call_analysis_${analyzedFile?.agentName}_${analyzedFile?.applicantId}_${new Date().toISOString()}.json`;
 
     link.click();
   };
@@ -41,7 +41,7 @@ export function AnalysisDisplay({ callData, onReset }: AnalysisDisplayProps) {
               <div>
                 <CardTitle className="font-headline text-2xl">Call Analysis Report</CardTitle>
                 <CardDescription className="mt-1">
-                  {universityName} - {domain} - {callDate ? format(callDate, 'PPP') : 'N/A'}
+                  Showing results for agent <Badge>{analyzedFile?.agentName}</Badge>
                 </CardDescription>
               </div>
               <div className="flex gap-2 self-start md:self-center">
@@ -52,6 +52,29 @@ export function AnalysisDisplay({ callData, onReset }: AnalysisDisplayProps) {
                   <RotateCcw className="mr-2 h-4 w-4" /> Start Over
                 </Button>
               </div>
+            </div>
+            <Separator className="!my-4" />
+            <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                    <FileAudio className="w-4 h-4 text-muted-foreground" />
+                    <strong>File:</strong>
+                    <span>{analyzedFile?.file.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <strong>Applicant ID:</strong>
+                    <span>{analyzedFile?.applicantId}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <University className="w-4 h-4 text-muted-foreground" />
+                    <strong>University:</strong>
+                    <span>{universityName}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <strong>Domain:</strong>
+                    <span>{domain}</span>
+                </div>
             </div>
         </CardHeader>
         <CardContent>
