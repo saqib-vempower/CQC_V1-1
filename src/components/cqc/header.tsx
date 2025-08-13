@@ -21,7 +21,8 @@ export function Header({ user }: HeaderProps) {
     const checkRole = async () => {
       if (user) {
         try {
-          const userDocRef = doc(db, 'allowedUsers', user.email!);
+          // Use user.uid for lookup, as it's the email in our custom auth setup
+          const userDocRef = doc(db, 'allowedUsers', user.uid);
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists()) {
             const userRole = userDoc.data().role;
