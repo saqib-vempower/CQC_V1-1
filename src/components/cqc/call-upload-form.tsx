@@ -194,7 +194,6 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
             });
 
             updateFileStatus(originalIndex, 'complete');
-
         } catch (error) {
             console.error(`Failed processing ${currentFile.file.name}:`, error);
             const message = error instanceof Error ? error.message : 'An unknown error occurred.';
