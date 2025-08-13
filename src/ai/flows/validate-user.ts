@@ -20,13 +20,7 @@ const getAdminApp = (): App => {
     if (getApps().length) {
         return getApps()[0]!;
     }
-     // In a deployed environment, GOOGLE_APPLICATION_CREDENTIALS might be set.
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-        return initializeApp({
-            credential: credential.applicationDefault(),
-        });
-    }
-    // Check for explicit service account credentials in env.
+    // In a deployed environment, GOOGLE_APPLICATION_CREDENTIALS might be set.
     if (process.env.GOOGLE_CREDENTIALS) {
         try {
             const serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
@@ -36,6 +30,11 @@ const getAdminApp = (): App => {
         } catch (e) {
             console.error("Failed to parse GOOGLE_CREDENTIALS:", e);
         }
+    }
+     if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        return initializeApp({
+            credential: credential.applicationDefault(),
+        });
     }
     // Fallback for local development or environments without explicit credentials.
     return initializeApp();
@@ -55,7 +54,7 @@ const validateUserFlow = ai.defineFlow(
   async ({ email }) => {
     const app = getAdminApp();
     const db = getFirestore(app);
-    const allowedUsersCollection = db.collection('allowedUsers');
+    const allowedUsersCollection = db.collection('AllowedUsers');
     const userDoc = await allowedUsersCollection.doc(email).get();
 
     if (userDoc.exists) {

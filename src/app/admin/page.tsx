@@ -29,7 +29,7 @@ export default function AdminPage() {
             if (user) {
                 try {
                     // Use user.uid for lookup, as it's the email in our custom auth setup
-                    const userDocRef = doc(db, 'allowedUsers', user.uid);
+                    const userDocRef = doc(db, 'AllowedUsers', user.uid);
                     const userDoc = await getDoc(userDocRef);
                     if (userDoc.exists()) {
                         const userRole = userDoc.data().role;
