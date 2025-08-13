@@ -4,8 +4,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps } from 'firebase-admin/app';
-import { credential } from 'firebase-admin';
+import { initializeApp, getApps, credential } from 'firebase-admin/app';
 
 const ValidateUserInputSchema = z.object({
   email: z.string().email(),
@@ -16,11 +15,11 @@ const ValidateUserOutputSchema = z.object({
   userId: z.string().optional(),
 });
 
+// Helper function to initialize Firebase Admin SDK if not already done.
 const getDb = () => {
   if (!getApps().length) {
     initializeApp({
       credential: credential.applicationDefault(),
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     });
   }
   return getFirestore();

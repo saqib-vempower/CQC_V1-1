@@ -4,8 +4,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getAuth } from 'firebase-admin/auth';
-import { initializeApp, getApps } from 'firebase-admin/app';
-import { credential } from 'firebase-admin';
+import { initializeApp, getApps, credential } from 'firebase-admin/app';
 
 const CreateCustomTokenInputSchema = z.object({
   uid: z.string(),
@@ -15,11 +14,11 @@ const CreateCustomTokenOutputSchema = z.object({
   token: z.string(),
 });
 
+// Helper function to initialize Firebase Admin SDK if not already done.
 const getAdminAuth = () => {
   if (!getApps().length) {
     initializeApp({
       credential: credential.applicationDefault(),
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     });
   }
   return getAuth();
