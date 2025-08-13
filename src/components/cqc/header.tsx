@@ -1,6 +1,12 @@
-import { Compass, LogOut } from 'lucide-react';
+
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Compass, LogOut, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 
 type HeaderProps = {
@@ -8,6 +14,30 @@ type HeaderProps = {
 }
 
 export function Header({ user }: HeaderProps) {
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdminRole = async () => {
+      if (user) {
+        try {
+          const userDocRef = doc(db, 'allowedUsers', user.email!);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists() && userDoc.data().role === 'admin') {
+            setIsAdmin(true);
+          } else {
+            setIsAdmin(false);
+          }
+        } catch (error) {
+            console.error("Failed to check admin role", error);
+            setIsAdmin(false);
+        }
+      } else {
+        setIsAdmin(false);
+      }
+    };
+    checkAdminRole();
+  }, [user]);
+
   const handleSignOut = async () => {
     await auth.signOut();
   };
@@ -17,14 +47,24 @@ export function Header({ user }: HeaderProps) {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <Compass className="h-8 w-8 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight font-headline">
-              Call Quality Compass
-            </h1>
+            <Link href="/" className="flex items-center gap-2">
+                <Compass className="h-8 w-8 text-primary" />
+                <h1 className="text-xl font-bold tracking-tight font-headline">
+                Call Quality Compass
+                </h1>
+            </Link>
           </div>
           {user && (
             <div className='flex items-center gap-4'>
               <span className='text-sm text-muted-foreground'>Welcome, {user.email}</span>
+              {isAdmin && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/admin">
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    Admin
+                  </Link>
+                </Button>
+              )}
               <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign Out">
                 <LogOut className="h-4 w-4" />
               </Button>
@@ -35,3 +75,4 @@ export function Header({ user }: HeaderProps) {
     </header>
   );
 }
+
