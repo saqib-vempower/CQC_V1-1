@@ -17,7 +17,7 @@ export function Splash() {
           Your AI-powered solution for analyzing call recordings, providing objective feedback, and generating actionable coaching tips to elevate your team's performance.
         </p>
         <div className="flex gap-4">
-          <Button asChild size="lg">
+          <Button asChild size="lg" variant="outline">
             <Link href="/login">Login</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
