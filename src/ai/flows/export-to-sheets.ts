@@ -12,7 +12,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { google } from 'googleapis';
 import type { StoredCallRecord } from './get-all-calls';
-import { credential } from 'firebase-admin/app';
+import { credential, getApps, initializeApp } from 'firebase-admin/app';
 
 const ExportToSheetsInputSchema = z.object({
   records: z.array(z.any()).describe("An array of call records to export."),
@@ -31,12 +31,27 @@ const SHEET_IDS: Record<string, string | undefined> = {
 
 // Helper function to get authenticated Google Sheets client
 const getSheetsClient = () => {
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-        const auth = new google.auth.GoogleAuth({
-            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-        });
-        return google.sheets({ version: 'v4', auth });
+    // Ensure Firebase Admin is initialized to leverage its authentication context if needed
+    if (!getApps().length) {
+        if (process.env.GOOGLE_CREDENTIALS) {
+            try {
+                const serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+                initializeApp({
+                    credential: credential.cert(serviceAccount),
+                });
+            } catch (e) {
+                console.error("Failed to parse GOOGLE_CREDENTIALS:", e);
+            }
+        } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+             initializeApp({
+                credential: credential.applicationDefault(),
+            });
+        } else {
+            initializeApp();
+        }
     }
+    
+    // Check for explicit service account credentials in env for Google Sheets API
     if (process.env.GOOGLE_CREDENTIALS) {
         try {
             const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
@@ -49,6 +64,15 @@ const getSheetsClient = () => {
             console.error("Failed to parse GOOGLE_CREDENTIALS for Sheets:", e);
         }
     }
+    
+    // Fallback to application default credentials if available
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        const auth = new google.auth.GoogleAuth({
+            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+        return google.sheets({ version: 'v4', auth });
+    }
+
     throw new Error("Google credentials are not set up correctly.");
 };
 
