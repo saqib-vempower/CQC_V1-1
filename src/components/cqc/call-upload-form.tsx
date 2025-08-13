@@ -74,7 +74,7 @@ export function CallUploadForm({ setStep, setCallData, callData }: CallUploadFor
     defaultValues: {
       universityName: callData.universityName || '',
       domain: callData.domain || '',
-      callDate: callData.callDate,
+      callDate: callData.callDate || undefined,
     },
   });
   
