@@ -3,27 +3,30 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
   
-    // Allow read-only access to allowed users list for any authenticated user
-    match /allowedUsers/{email} {
-      allow read: if request.auth != null;
-      allow write: if false; // Disallow client-side writes
+    // Helper function to get user's role from the 'allowedUsers' collection.
+    // The resource.data object contains the document's fields.
+    function getUserRole(email) {
+      return get(/databases/$(database)/documents/allowedUsers/$(email)).data.role;
     }
     
-    // Allow users to read and write their own call records
-    match /calls/{callId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+    // Helper function to check if a user is an admin.
+    function isAdmin(email) {
+      return getUserRole(email) == 'admin';
     }
-    
-    // Admins can read any call record
-    // This requires custom claims on the user's auth token, which needs to be set up on the backend.
-    // We can implement this in a later step.
-    // match /calls/{callId} {
-    //   allow read: if request.auth.token.admin == true;
-    // }
 
-    // By default, deny all other reads and writes
-    match /{document=**} {
-      allow read, write: if false;
+    // Rules for the 'allowedUsers' collection.
+    match /allowedUsers/{email} {
+      // Only admins can read or write to the allowed users list.
+      allow read, write: if request.auth != null && isAdmin(request.auth.token.email);
+    }
+
+    // Rules for the 'calls' collection.
+    match /calls/{callId} {
+      // Admins and QA Reviewers can read call records.
+      allow read: if request.auth != null && (getUserRole(request.auth.token.email) == 'admin' || getUserRole(request.auth.token.email) == 'qa_reviewer');
+      
+      // Only admins can create, update, or delete call records.
+      allow write: if request.auth != null && isAdmin(request.auth.token.email);
     }
   }
 }
