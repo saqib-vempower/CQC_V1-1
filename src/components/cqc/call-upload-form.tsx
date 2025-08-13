@@ -359,7 +359,7 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
                   Auditing {transcribedFiles.length}/{callData.files.filter(f => f.status === 'valid').length}...
                 </>
               ) : (
-                `Start Auditing ${callData.files.filter(f => f.status === 'valid').length} Valid File(s)`
+                'Start Auditing'
               )}
             </Button>
           </form>
