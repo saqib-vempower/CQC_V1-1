@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -30,12 +31,10 @@ export type CallData = {
   universityName: string;
   domain: string;
   callDate?: Date;
-  // This will now be an array of processed files
-  files: CallFile[];
-  // The following fields might become specific to a selected call for analysis
+  // This is the file being analyzed
+  analyzedFile?: CallFile
   audioMetrics: string;
   timestamps: string;
-  // This will hold the transcript of the currently analyzed call
   transcript: string;
   rubricScores: Record<string, number>;
   analysis?: {
@@ -43,8 +42,6 @@ export type CallData = {
     feedback: string;
   };
   coachingTips?: string[];
-  // Keep track of which file is being scored/analyzed
-  analyzedFile?: CallFile
 };
 
 type DashboardProps = {
@@ -56,7 +53,6 @@ export function Dashboard({ user }: DashboardProps) {
   const [callData, setCallData] = useState<CallData>({
     universityName: '',
     domain: '',
-    files: [],
     audioMetrics: '',
     timestamps: '',
     transcript: '',
@@ -68,7 +64,6 @@ export function Dashboard({ user }: DashboardProps) {
     // Do not reset university and domain
     setCallData(prev => ({
         ...prev,
-        files: [],
         audioMetrics: '',
         timestamps: '',
         transcript: '',
@@ -78,15 +73,6 @@ export function Dashboard({ user }: DashboardProps) {
         analyzedFile: undefined,
     }));
   };
-
-  const handleSelectForAnalysis = (file: CallFile) => {
-    setCallData(prev => ({
-        ...prev,
-        analyzedFile: file,
-        transcript: file.transcript || '',
-    }));
-    setStep(2);
-  }
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -99,7 +85,6 @@ export function Dashboard({ user }: DashboardProps) {
               setStep={setStep} 
               setCallData={setCallData}
               callData={callData}
-              onSelectForAnalysis={handleSelectForAnalysis}
             />
           )}
           {step === 2 && (

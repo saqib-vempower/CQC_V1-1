@@ -1,7 +1,8 @@
+
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { analyzeCallTranscript } from '@/ai/flows/analyze-call-transcript';
 import { generateCoachingTips } from '@/ai/flows/generate-coaching-tips';
@@ -17,6 +18,8 @@ import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
 import { Textarea } from '../ui/textarea';
 import { useAuth } from '@/components/cqc/auth-provider';
+import { transcribeAudio } from '@/ai/flows/transcribe-audio';
+import { Skeleton } from '../ui/skeleton';
 
 const rubricItems = [
   'Opening', 'Active Listening', 'Problem Solving', 'Professionalism', 'Closing'
@@ -29,7 +32,8 @@ type RubricScorerProps = {
 };
 
 export function RubricScorer({ callData, setStep, setCallData }: RubricScorerProps) {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(true);
   const { user } = useAuth();
   const [scores, setScores] = useState<Record<string, number>>(() => {
     const initialScores: Record<string, number> = {};
@@ -39,6 +43,48 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
   const [audioMetrics, setAudioMetrics] = useState(callData.audioMetrics || '');
   const [timestamps, setTimestamps] = useState(callData.timestamps || '');
   const { toast } = useToast();
+
+  useEffect(() => {
+    const runTranscription = async () => {
+        if (!callData.analyzedFile?.audioDataUri) {
+             toast({
+                variant: 'destructive',
+                title: 'Transcription Error',
+                description: 'Could not find the audio file data to transcribe.',
+            });
+            setIsTranscribing(false);
+            return;
+        }
+
+        try {
+            setIsTranscribing(true);
+            const transcriptionResult = await transcribeAudio({ audioDataUri: callData.analyzedFile.audioDataUri });
+            if (!transcriptionResult || !transcriptionResult.transcript) {
+                throw new Error(`Transcription failed for ${callData.analyzedFile.file.name}.`);
+            }
+            setCallData(prev => ({
+                ...prev,
+                transcript: transcriptionResult.transcript,
+                analyzedFile: prev.analyzedFile ? {
+                    ...prev.analyzedFile,
+                    sentiment: transcriptionResult.sentiment,
+                    transcript: transcriptionResult.transcript,
+                    words: transcriptionResult.words,
+                } : undefined,
+            }));
+        } catch (error) {
+            console.error(error);
+            toast({
+                variant: 'destructive',
+                title: 'Transcription Failed',
+                description: error instanceof Error ? error.message : 'The audio could not be transcribed.',
+            });
+        } finally {
+            setIsTranscribing(false);
+        }
+    }
+    runTranscription();
+  }, [callData.analyzedFile, setCallData, toast]);
 
   const handleScoreChange = (item: string, value: number[]) => {
     setScores(prev => ({...prev, [item]: value[0]}));
@@ -64,18 +110,27 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
         });
         return;
     }
+    if (!callData.transcript) {
+        toast({
+            variant: 'destructive',
+            title: 'Missing Transcript',
+            description: 'Cannot proceed without a call transcript.',
+        });
+        return;
+    }
 
-    setIsLoading(true);
+    setIsAnalyzing(true);
     try {
-      setCallData(prev => ({ 
-        ...prev, 
+      const currentCallData = { 
+        ...callData, 
         rubricScores: scores,
         audioMetrics,
         timestamps 
-      }));
+      };
+      setCallData(currentCallData);
       
       const analysisResult = await analyzeCallTranscript({
-        transcript: callData.transcript,
+        transcript: currentCallData.transcript,
         audioMetrics: audioMetrics,
         rubricScores: JSON.stringify(scores),
       });
@@ -84,11 +139,11 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
 
       const coachingTipsResult = await generateCoachingTips({
         rubricScores: scores,
-        transcript: callData.transcript,
+        transcript: currentCallData.transcript,
         timestamps: parsedTimestamps,
-        universityName: callData.universityName,
-        domain: callData.domain,
-        callDate: callData.callDate ? format(callData.callDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
+        universityName: currentCallData.universityName,
+        domain: currentCallData.domain,
+        callDate: currentCallData.callDate ? format(currentCallData.callDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
       });
 
       if (!analysisResult || !coachingTipsResult) {
@@ -97,19 +152,19 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
       
       await storeCallRecord({
         userId: user.uid,
-        universityName: callData.universityName,
-        domain: callData.domain,
-        callDate: callData.callDate ? format(callData.callDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
-        fileName: callData.analyzedFile?.file.name || 'unknown',
-        agentName: callData.analyzedFile?.agentName || 'unknown',
-        applicantId: callData.analyzedFile?.applicantId || 'unknown',
-        transcript: callData.transcript,
+        universityName: currentCallData.universityName,
+        domain: currentCallData.domain,
+        callDate: currentCallData.callDate ? format(currentCallData.callDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
+        fileName: currentCallData.analyzedFile?.file.name || 'unknown',
+        agentName: currentCallData.analyzedFile?.agentName || 'unknown',
+        applicantId: currentCallData.analyzedFile?.applicantId || 'unknown',
+        transcript: currentCallData.transcript,
         rubricScores: scores,
         audioMetrics: audioMetrics,
         timestamps: parsedTimestamps,
         analysis: analysisResult,
         coachingTips: coachingTipsResult.coachingTips,
-        sentiment: callData.analyzedFile?.sentiment || 'NEUTRAL',
+        sentiment: currentCallData.analyzedFile?.sentiment || 'NEUTRAL',
       });
 
       setCallData(prev => ({
@@ -133,9 +188,34 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
         description: error instanceof Error ? error.message : 'Could not analyze and save the call. Please try again.',
       });
     } finally {
-      setIsLoading(false);
+      setIsAnalyzing(false);
     }
   }
+
+  const renderLoadingSkeleton = () => (
+    <div className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+                <Skeleton className="h-6 w-1/2" />
+                <Skeleton className="h-20 w-full" />
+            </div>
+            <div className="space-y-2">
+                <Skeleton className="h-6 w-1/2" />
+                <Skeleton className="h-20 w-full" />
+            </div>
+        </div>
+        <Separator />
+        <div className="space-y-6">
+            {rubricItems.map(item => (
+                <div key={item} className="space-y-3">
+                    <Skeleton className="h-6 w-1/4" />
+                    <Skeleton className="h-5 w-full" />
+                </div>
+            ))}
+        </div>
+        <Skeleton className="h-10 w-full" />
+    </div>
+  );
 
   return (
     <Card className="max-w-2xl mx-auto shadow-lg">
@@ -170,60 +250,64 @@ export function RubricScorer({ callData, setStep, setCallData }: RubricScorerPro
         </div>
 
       </CardHeader>
-      <CardContent className="space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <Label htmlFor='audioMetrics'>Audio Metrics (Optional)</Label>
-                <Textarea
-                    id="audioMetrics"
-                    placeholder="Enter audio metrics like pauses, holds, audio quality scores..."
-                    className="resize-none mt-2"
-                    value={audioMetrics}
-                    onChange={(e) => setAudioMetrics(e.target.value)}
-                />
+      <CardContent>
+        {isTranscribing ? renderLoadingSkeleton() : (
+            <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <Label htmlFor='audioMetrics'>Audio Metrics (Optional)</Label>
+                    <Textarea
+                        id="audioMetrics"
+                        placeholder="Enter audio metrics like pauses, holds, audio quality scores..."
+                        className="resize-none mt-2"
+                        value={audioMetrics}
+                        onChange={(e) => setAudioMetrics(e.target.value)}
+                    />
+                </div>
+                <div>
+                    <Label htmlFor='timestamps'>Notable Timestamps (Optional)</Label>
+                    <Textarea
+                        id="timestamps"
+                        placeholder="e.g. Long pause: 00:32-00:40&#10;Agent interruption: 01:15-01:17"
+                        className="resize-none mt-2"
+                        value={timestamps}
+                        onChange={(e) => setTimestamps(e.target.value)}
+                    />
+                </div>
             </div>
-            <div>
-                <Label htmlFor='timestamps'>Notable Timestamps (Optional)</Label>
-                <Textarea
-                    id="timestamps"
-                    placeholder="e.g. Long pause: 00:32-00:40&#10;Agent interruption: 01:15-01:17"
-                    className="resize-none mt-2"
-                    value={timestamps}
-                    onChange={(e) => setTimestamps(e.target.value)}
-                />
-            </div>
-        </div>
 
-        <Separator />
+            <Separator />
 
-        <div className="space-y-6">
-          {rubricItems.map(item => (
-            <div key={item} className="grid gap-4">
-              <div className="flex justify-between items-center">
-                <Label htmlFor={item} className="text-base">{item}</Label>
-                <span className="w-12 text-center font-bold text-lg text-primary bg-primary/10 rounded-md py-1">{scores[item]}</span>
-              </div>
-              <Slider
-                id={item}
-                min={1}
-                max={5}
-                step={1}
-                value={[scores[item]]}
-                onValueChange={(value) => handleScoreChange(item, value)}
-              />
+            <div className="space-y-6">
+            {rubricItems.map(item => (
+                <div key={item} className="grid gap-4">
+                <div className="flex justify-between items-center">
+                    <Label htmlFor={item} className="text-base">{item}</Label>
+                    <span className="w-12 text-center font-bold text-lg text-primary bg-primary/10 rounded-md py-1">{scores[item]}</span>
+                </div>
+                <Slider
+                    id={item}
+                    min={1}
+                    max={5}
+                    step={1}
+                    value={[scores[item]]}
+                    onValueChange={(value) => handleScoreChange(item, value)}
+                />
+                </div>
+            ))}
             </div>
-          ))}
-        </div>
-        <Button onClick={onSubmit} disabled={isLoading} className="w-full">
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating Insights...
-            </>
-          ) : (
-            'Generate Coaching & View Results'
-          )}
-        </Button>
+            <Button onClick={onSubmit} disabled={isAnalyzing} className="w-full">
+            {isAnalyzing ? (
+                <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating Insights...
+                </>
+            ) : (
+                'Generate Coaching & View Results'
+            )}
+            </Button>
+            </div>
+        )}
       </CardContent>
     </Card>
   );

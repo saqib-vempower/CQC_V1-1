@@ -7,8 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Loader2, UploadCloud, FileCheck2, FileX2, ChevronsRight } from 'lucide-react';
-import { transcribeAudio } from '@/ai/flows/transcribe-audio';
+import { Calendar as CalendarIcon, UploadCloud, FileCheck2, FileX2, ChevronsRight } from 'lucide-react';
 import type { CallData, CallFile } from '@/components/cqc/dashboard';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -23,7 +22,6 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -33,8 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
+import { useToast } from '@/hooks/use-toast';
 
 const universities = [
   { abbr: 'CUA', name: 'Catholic University of America' },
@@ -51,16 +49,15 @@ const formSchema = z.object({
   universityName: z.string().min(2, { message: 'University name is required.' }),
   domain: z.string().min(2, { message: 'Domain is required.' }),
   callDate: z.date().optional(),
-  audioFiles: z
-    .array(z.custom<File>())
-    .refine((files) => files.length > 0, 'At least one audio file is required.')
+  audioFile: z
+    .custom<File>((val) => val instanceof File, 'Please upload a file.')
     .refine(
-      (files) => files.every((file) => file.type.startsWith('audio/')),
-      'All files must be audio files.'
+      (file) => file.type.startsWith('audio/'),
+      'The file must be an audio file.'
     )
     .refine(
-        (files) => files.every((file) => file.name.endsWith('.mp3') || file.name.endsWith('.wav')),
-        'All files must be in .mp3 or .wav format.'
+        (file) => file.name.endsWith('.mp3') || file.name.endsWith('.wav'),
+        'The file must be in .mp3 or .wav format.'
     ),
 });
 
@@ -68,12 +65,9 @@ type CallUploadFormProps = {
   setStep: Dispatch<SetStateAction<number>>;
   setCallData: Dispatch<SetStateAction<CallData>>;
   callData: CallData;
-  onSelectForAnalysis: (file: CallFile) => void;
 };
 
-export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnalysis }: CallUploadFormProps) {
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [transcribedFiles, setTranscribedFiles] = useState<string[]>([]);
+export function CallUploadForm({ setStep, setCallData, callData }: CallUploadFormProps) {
   const { toast } = useToast();
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -82,29 +76,15 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
       universityName: callData.universityName || '',
       domain: callData.domain || '',
       callDate: callData.callDate,
-      audioFiles: [],
     },
   });
+  
+  const selectedFile = form.watch('audioFile');
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const fileList = event.target.files;
-    if (fileList) {
-      const files = Array.from(fileList);
-      const processedFiles: CallFile[] = files.map(file => {
-        const fileName = file.name.endsWith('.mp3') ? file.name.replace('.mp3', '') : file.name.replace('.wav', '');
-        const parts = fileName.split('_');
-        if (parts.length === 2 && parts[0] && parts[1]) {
-          return {
-            file,
-            agentName: parts[0],
-            applicantId: parts[1],
-            status: 'valid'
-          };
-        }
-        return { file, agentName: '', applicantId: '', status: 'invalid' };
-      });
-      form.setValue('audioFiles', files); // for validation
-      setCallData(prev => ({ ...prev, files: processedFiles }));
+    const file = event.target.files?.[0];
+    if (file) {
+      form.setValue('audioFile', file);
     }
   };
   
@@ -116,60 +96,47 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setIsTranscribing(true);
-    setTranscribedFiles([]);
+    const fileName = values.audioFile.name.endsWith('.mp3') 
+        ? values.audioFile.name.replace('.mp3', '') 
+        : values.audioFile.name.replace('.wav', '');
+    const parts = fileName.split('_');
+    
+    if (parts.length !== 2 || !parts[0] || !parts[1]) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid Filename Format',
+            description: "Please ensure the audio file is named 'AgentName_ApplicantID'.",
+        });
+        return;
+    }
+    
+    const audioDataUri = await toBase64(values.audioFile);
+
+    const callFile: CallFile = {
+      file: values.audioFile,
+      agentName: parts[0],
+      applicantId: parts[1],
+      status: 'valid',
+      audioDataUri,
+    };
     
     setCallData((prev) => ({
       ...prev,
       universityName: values.universityName,
       domain: values.domain,
       callDate: values.callDate,
+      analyzedFile: callFile,
     }));
-
-    const validFiles = callData.files.filter(f => f.status === 'valid');
-
-    try {
-        const transcriptionPromises = validFiles.map(async (callFile) => {
-        const audioDataUri = await toBase64(callFile.file);
-        const transcriptionResult = await transcribeAudio({ audioDataUri });
-        
-        if (!transcriptionResult || !transcriptionResult.transcript) {
-            throw new Error(`Transcription failed for ${callFile.file.name}.`);
-        }
-
-        setCallData(prev => ({
-            ...prev,
-            files: prev.files.map(f => f.file.name === callFile.file.name ? { ...f, transcript: transcriptionResult.transcript, audioDataUri, words: transcriptionResult.words, sentiment: transcriptionResult.sentiment } : f)
-        }));
-        setTranscribedFiles(prev => [...prev, callFile.file.name]);
-        return { ...callFile, transcript: transcriptionResult.transcript };
-      });
-
-      await Promise.all(transcriptionPromises);
-
-      toast({
-        title: "All transcriptions complete!",
-        description: "You can now select a call to analyze.",
-      });
-
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'An error occurred during transcription',
-        description: error instanceof Error ? error.message : 'Could not transcribe one or more files. Please try again.',
-      });
-    } finally {
-      setIsTranscribing(false);
-    }
+    
+    setStep(2);
   };
 
   return (
-    <Card className="max-w-4xl mx-auto shadow-lg">
+    <Card className="max-w-2xl mx-auto shadow-lg">
       <CardHeader>
         <CardTitle className="font-headline text-xl">Upload Call Details</CardTitle>
         <CardDescription>
-          Provide call information and upload one or more audio files for transcription.
+          Provide call information and upload an audio file for analysis.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -186,7 +153,7 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a university" />
-                        </SelectTrigger>
+                        </Trigger>
                       </FormControl>
                       <SelectContent>
                         {universities.map(uni => (
@@ -213,7 +180,7 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a domain" />
-                        </SelectTrigger>
+                        </Trigger>
                       </FormControl>
                       <SelectContent>
                         {domains.map(domain => (
@@ -272,29 +239,28 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
             
             <FormField
               control={form.control}
-              name="audioFiles"
+              name="audioFile"
               render={() => (
                 <FormItem>
-                    <FormLabel>Audio Files</FormLabel>
+                    <FormLabel>Audio File</FormLabel>
                     <FormControl>
                         <div className="relative flex justify-center w-full h-32 px-6 pt-5 pb-6 border-2 border-dashed rounded-md border-border hover:border-primary transition-colors">
                             <div className="space-y-1 text-center">
                                 <UploadCloud className="w-12 h-12 mx-auto text-muted-foreground" />
                                 <div className="flex text-sm text-muted-foreground items-center justify-center">
-                                    <label htmlFor="audioFiles" className={cn("text-primary cursor-pointer font-semibold")}>
-                                        <span>Upload files</span>
+                                    <label htmlFor="audioFile" className={cn("text-primary cursor-pointer font-semibold")}>
+                                        <span>Upload file</span>
                                         <Input
-                                            id="audioFiles"
+                                            id="audioFile"
                                             type="file"
                                             accept=".mp3,.wav"
-                                            multiple
                                             className="sr-only"
                                             onChange={handleFileChange}
                                         />
                                     </label>
                                     <p className="pl-1">or drag and drop</p>
                                 </div>
-                                <p className="text-xs text-muted-foreground">.mp3, .wav files in 'AgentName_ApplicantID' format</p>
+                                <p className="text-xs text-muted-foreground">.mp3, .wav file in 'AgentName_ApplicantID' format</p>
                             </div>
                         </div>
                     </FormControl>
@@ -303,62 +269,21 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
               )}
             />
 
-            {callData.files.length > 0 && (
+            {selectedFile && (
               <div>
-                <h3 className="text-sm font-medium mb-2">Uploaded Files:</h3>
-                <div className="space-y-2 rounded-md border">
-                    {callData.files.map((callFile, index) => (
-                        <div key={index} className="flex items-center p-3">
-                            <div className="flex-1">
-                                <p className="text-sm font-medium">{callFile.file.name}</p>
-                                {callFile.status === 'valid' ? (
-                                    <div className='flex gap-2 items-center'>
-                                        <FileCheck2 className="w-4 h-4 text-green-500" />
-                                        <p className="text-xs text-muted-foreground">
-                                            Agent: <span className="font-semibold text-foreground">{callFile.agentName}</span>, Applicant ID: <span className="font-semibold text-foreground">{callFile.applicantId}</span>
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className='flex gap-2 items-center'>
-                                      <FileX2 className="w-4 h-4 text-destructive" />
-                                      <p className="text-xs text-destructive">Invalid filename format</p>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="w-48 text-right">
-                                {isTranscribing && callFile.status === 'valid' && !transcribedFiles.includes(callFile.file.name) && (
-                                    <Badge variant="secondary" className="animate-pulse">
-                                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                        Transcribing...
-                                    </Badge>
-                                )}
-                                {transcribedFiles.includes(callFile.file.name) && callFile.transcript && (
-                                     <Button size="sm" onClick={() => onSelectForAnalysis(callFile)}>
-                                        Analyze
-                                        <ChevronsRight className="h-4 w-4 ml-2" />
-                                    </Button>
-                                )}
-                                {callFile.status === 'invalid' && (
-                                    <Badge variant="destructive">Invalid</Badge>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+                <h3 className="text-sm font-medium mb-2">Selected File:</h3>
+                <div className="space-y-2 rounded-md border p-3 flex items-center">
+                   <FileCheck2 className="w-4 h-4 text-green-500 mr-2" />
+                   <p className="text-sm font-medium">{selectedFile.name}</p>
                 </div>
               </div>
             )}
             
             <Separator />
             
-            <Button type="submit" disabled={isTranscribing || callData.files.filter(f => f.status === 'valid').length === 0} className="w-full">
-              {isTranscribing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Auditing {transcribedFiles.length}/{callData.files.filter(f => f.status === 'valid').length}...
-                </>
-              ) : (
-                'Start Auditing'
-              )}
+            <Button type="submit" disabled={!selectedFile} className="w-full">
+              Next: Score Rubric
+              <ChevronsRight className="ml-2 h-4 w-4" />
             </Button>
           </form>
         </Form>
