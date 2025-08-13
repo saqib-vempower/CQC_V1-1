@@ -214,7 +214,7 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a domain" />
-                        </SelectTrigger>
+                        </Trigger>
                       </FormControl>
                       <SelectContent>
                         {domains.map(domain => (
@@ -248,7 +248,7 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
                           {field.value ? (
                             format(field.value, 'PPP')
                           ) : (
-                            <span>Pick a date</span>
+                            <span>Date of Call</span>
                           )}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
