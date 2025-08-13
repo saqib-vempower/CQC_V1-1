@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
@@ -160,9 +161,7 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
     } finally {
       setIsTranscribing(false);
     }
-  }
-
-  const { ref: fileRef, ...fileRest } = form.register("audioFiles");
+  };
 
   return (
     <Card className="max-w-4xl mx-auto shadow-lg">
@@ -213,7 +212,7 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a domain" />
-                        </Trigger>
+                        </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {domains.map(domain => (
@@ -366,3 +365,5 @@ export function CallUploadForm({ setStep, setCallData, callData, onSelectForAnal
     </Card>
   );
 }
+
+    
