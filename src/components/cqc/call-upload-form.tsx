@@ -251,7 +251,7 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a university" />
-                        </Trigger>
+                        </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {universities.map(uni => (
