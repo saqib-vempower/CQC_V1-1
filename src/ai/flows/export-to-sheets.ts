@@ -29,7 +29,10 @@ const SHEET_IDS: Record<string, string | undefined> = {
 
 // Helper function to get authenticated Google Sheets client
 const getSheetsClient = () => {
-    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}');
+    if (!process.env.GOOGLE_CREDENTIALS) {
+        throw new Error("GOOGLE_CREDENTIALS environment variable not set.");
+    }
+    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
     const auth = new google.auth.GoogleAuth({
         credentials,
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
@@ -54,10 +57,11 @@ const exportToSheetsFlow = ai.defineFlow(
         // Group records by university
         const recordsByUniversity: Record<string, StoredCallRecord[]> = {};
         for (const record of records) {
-            if (!recordsByUniversity[record.universityName]) {
-                recordsByUniversity[record.universityName] = [];
+            const typedRecord = record as StoredCallRecord;
+            if (!recordsByUniversity[typedRecord.universityName]) {
+                recordsByUniversity[typedRecord.universityName] = [];
             }
-            recordsByUniversity[record.universityName].push(record as StoredCallRecord);
+            recordsByUniversity[typedRecord.universityName].push(typedRecord);
         }
 
         for (const universityName in recordsByUniversity) {
@@ -68,41 +72,63 @@ const exportToSheetsFlow = ai.defineFlow(
             }
 
             const universityRecords = recordsByUniversity[universityName];
-            
-            const header = [
-                'ID', 'Agent Name', 'Applicant ID', 'Domain', 'Call Date', 'Sentiment', 
-                'Opening', 'Active Listening', 'Problem Solving', 'Professionalism', 'Closing',
-                'Agent Behavior Assessment', 'Feedback', 'Coaching Tips', 'Transcript'
-            ];
-            
-            const rows = universityRecords.map(rec => [
-                rec.id,
-                rec.agentName,
-                rec.applicantId,
-                rec.domain,
-                rec.callDate,
-                rec.sentiment,
-                rec.rubricScores['Opening'] || '',
-                rec.rubricScores['Active Listening'] || '',
-                rec.rubricScores['Problem Solving'] || '',
-                rec.rubricScores['Professionalism'] || '',
-                rec.rubricScores['Closing'] || '',
-                rec.analysis.agentBehaviorAssessment,
-                rec.analysis.feedback,
-                rec.coachingTips.join('\\n'),
-                rec.transcript
-            ]);
 
-            const resource = {
-                values: [header, ...rows],
-            };
+            // Further group by domain to target specific tabs
+            const recordsByDomain: Record<string, StoredCallRecord[]> = {};
+            for (const record of universityRecords) {
+                if (!recordsByDomain[record.domain]) {
+                    recordsByDomain[record.domain] = [];
+                }
+                recordsByDomain[record.domain].push(record);
+            }
+            
+            for (const domain in recordsByDomain) {
+                // Assuming domain names match tab names (e.g., 'Support', 'Reach', 'Connect')
+                const tabName = domain;
+                const domainRecords = recordsByDomain[domain];
 
-            await sheets.spreadsheets.values.update({
-                spreadsheetId,
-                range: 'A1', // Start at the beginning of the sheet
-                valueInputOption: 'RAW',
-                requestBody: resource,
-            });
+                const header = [
+                    'ID', 'Agent Name', 'Applicant ID', 'Domain', 'Call Date', 'Sentiment', 
+                    'Opening', 'Active Listening', 'Problem Solving', 'Professionalism', 'Closing',
+                    'Agent Behavior Assessment', 'Feedback', 'Coaching Tips', 'Transcript'
+                ];
+                
+                const rows = domainRecords.map(rec => [
+                    rec.id,
+                    rec.agentName,
+                    rec.applicantId,
+                    rec.domain,
+                    rec.callDate,
+                    rec.sentiment,
+                    rec.rubricScores['Opening'] || '',
+                    rec.rubricScores['Active Listening'] || '',
+                    rec.rubricScores['Problem Solving'] || '',
+                    rec.rubricScores['Professionalism'] || '',
+                    rec.rubricScores['Closing'] || '',
+                    rec.analysis.agentBehaviorAssessment,
+                    rec.analysis.feedback,
+                    rec.coachingTips.join('\\n'),
+                    rec.transcript
+                ]);
+
+                const resource = {
+                    values: [header, ...rows],
+                };
+
+                // Clear the specific tab before updating
+                await sheets.spreadsheets.values.clear({
+                    spreadsheetId,
+                    range: tabName, // Clears the entire tab
+                });
+
+                // Write the new data to the tab
+                await sheets.spreadsheets.values.update({
+                    spreadsheetId,
+                    range: `${tabName}!A1`, // Start at the beginning of the specified tab
+                    valueInputOption: 'RAW',
+                    requestBody: resource,
+                });
+            }
         }
 
         return { success: true, message: 'Export successful!' };
