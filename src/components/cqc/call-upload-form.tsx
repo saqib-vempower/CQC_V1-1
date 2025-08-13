@@ -8,7 +8,7 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon, UploadCloud, FileCheck2, ChevronsRight, Loader2, Bot, FileText, CheckCircle2, XCircle } from 'lucide-react';
-import type { CallData, CallFile } from '@/components/cqc/dashboard';
+import type { CallData, CallFile } from '@/app/audits/page';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
