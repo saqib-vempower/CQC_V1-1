@@ -72,7 +72,7 @@ export default function SignupPage() {
         title: 'Account Created',
         description: "Your account has been successfully created.",
       });
-      router.push('/');
+      router.push('/home');
     } catch (error: any) {
       console.error(error);
       let description = 'An error occurred. Please try again.';

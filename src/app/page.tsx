@@ -1,27 +1,21 @@
+
 'use client';
-import { useEffect, useState } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { useEffect } from 'react';
+import { useAuth } from '@/components/cqc/auth-provider';
 import { useRouter } from 'next/navigation';
-import { Dashboard } from '@/components/cqc/dashboard';
 import { Splash } from '@/components/cqc/splash';
 
 export default function Home() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-      if (!currentUser) {
-        // The splash screen will be shown, which has login/signup buttons.
+    if (!loading) {
+      if (user) {
+        router.push('/home');
       }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
+    }
+  }, [user, loading, router]);
 
   if (loading) {
     return (
@@ -33,5 +27,16 @@ export default function Home() {
     )
   }
 
-  return user ? <Dashboard user={user} /> : <Splash />;
+  if (user) {
+      // Still loading or redirecting
+      return (
+        <div className="flex flex-col min-h-screen bg-background">
+            <div className="flex-grow flex items-center justify-center">
+                <p>Redirecting...</p>
+            </div>
+        </div>
+    )
+  }
+
+  return <Splash />;
 }

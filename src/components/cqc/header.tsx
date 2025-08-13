@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Compass, LogOut, ShieldCheck } from 'lucide-react';
+import { Compass, LogOut, ShieldCheck, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -15,6 +15,7 @@ type HeaderProps = {
 
 export function Header({ user }: HeaderProps) {
   const [canViewDashboard, setCanViewDashboard] = useState(false);
+  const homePath = user ? '/home' : '/';
 
   useEffect(() => {
     const checkRole = async () => {
@@ -52,7 +53,7 @@ export function Header({ user }: HeaderProps) {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href={homePath} className="flex items-center gap-2">
                 <Compass className="h-8 w-8 text-primary" />
                 <h1 className="text-xl font-bold tracking-tight font-headline">
                 Call Quality Compass
@@ -62,6 +63,12 @@ export function Header({ user }: HeaderProps) {
           {user && (
             <div className='flex items-center gap-4'>
               <span className='text-sm text-muted-foreground'>Welcome, {user.email}</span>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/home">
+                    <Home className="mr-2 h-4 w-4" />
+                    Home
+                  </Link>
+                </Button>
               {canViewDashboard && (
                 <Button variant="outline" size="sm" asChild>
                   <Link href="/admin">
