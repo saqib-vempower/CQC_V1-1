@@ -16,12 +16,19 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '../ui/button';
+import { DownloadCloud, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { exportToSheets } from '@/ai/flows/export-to-sheets';
+
 
 export function AdminDashboard() {
   const { user } = useAuth();
   const [calls, setCalls] = useState<StoredCallRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchCalls = async () => {
@@ -48,6 +55,30 @@ export function AdminDashboard() {
 
     fetchCalls();
   }, []);
+  
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+        const {success, message} = await exportToSheets({records: calls});
+        if (success) {
+            toast({
+                title: 'Export Successful',
+                description: 'All records have been sent to Google Sheets.',
+            });
+        } else {
+             throw new Error(message);
+        }
+    } catch (err) {
+        toast({
+            variant: 'destructive',
+            title: 'Export Failed',
+            description: err instanceof Error ? err.message : 'An unknown error occurred.',
+        });
+        console.error(err);
+    } finally {
+        setIsExporting(false);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -60,6 +91,10 @@ export function AdminDashboard() {
                   <CardTitle>Admin Dashboard</CardTitle>
                   <CardDescription>View all analyzed call records.</CardDescription>
                 </div>
+                <Button onClick={handleExport} disabled={isExporting || loading || calls.length === 0}>
+                  {isExporting ? <Loader2 className="animate-spin" /> : <DownloadCloud />}
+                  Export to Sheets
+                </Button>
               </div>
           </CardHeader>
           <CardContent>
