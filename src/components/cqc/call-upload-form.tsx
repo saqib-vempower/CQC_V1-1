@@ -26,6 +26,22 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+const universities = [
+  { abbr: 'CUA', name: 'Catholic University of America' },
+  { abbr: 'RIT', name: 'Rochester Institute of Technology' },
+  { abbr: 'IIT', name: 'Illinois Institute of Technology' },
+  { abbr: 'SLU', name: 'Saint Louis University' },
+  { abbr: 'DPU', name: 'DePaul University' },
+  { abbr: 'RU', name: 'Rockhurst University' },
+];
 
 const formSchema = z.object({
   universityName: z.string().min(2, { message: 'University name is required.' }),
@@ -131,9 +147,23 @@ export function CallUploadForm({ setStep, setCallData }: CallUploadFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>University Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Grand Canyon University" {...field} />
-                    </FormControl>
+                     <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a university" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {universities.map(uni => (
+                          <SelectItem key={uni.abbr} value={uni.name}>
+                            <div>
+                              <span>{uni.abbr}</span>
+                              <span className="block text-xs text-muted-foreground">{uni.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
