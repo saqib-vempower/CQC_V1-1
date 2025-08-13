@@ -20,9 +20,7 @@ const getAdminApp = (): App => {
     if (getApps().length) {
         return getApps()[0]!;
     }
-    return initializeApp({
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    });
+    return initializeApp();
 };
 
 

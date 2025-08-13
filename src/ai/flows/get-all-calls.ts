@@ -12,7 +12,6 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps } from 'firebase-admin/app';
-import { credential } from 'firebase-admin';
 
 // This schema should match the structure of what's saved in store-call-record.ts
 const StoredCallRecordSchema = z.object({
@@ -50,10 +49,7 @@ const GetAllCallsOutputSchema = z.object({
 // Helper function to initialize Firebase Admin SDK.
 const getDb = () => {
   if (!getApps().length) {
-    initializeApp({
-      credential: credential.applicationDefault(),
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    });
+    initializeApp();
   }
   return getFirestore();
 }
