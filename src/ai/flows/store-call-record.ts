@@ -10,17 +10,8 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { initializeApp, getApps } from 'firebase-admin/app';
 import { credential } from 'firebase-admin';
-
-// Initialize Firebase Admin SDK if it hasn't been already.
-if (!getApps().length) {
-  initializeApp({
-    credential: credential.applicationDefault(),
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  });
-}
-const db = getFirestore();
 
 const StoreCallRecordInputSchema = z.object({
   userId: z.string().describe('The ID of the user who performed the analysis.'),
@@ -48,6 +39,17 @@ const StoreCallRecordInputSchema = z.object({
 
 export type StoreCallRecordInput = z.infer<typeof StoreCallRecordInputSchema>;
 
+// Helper function to initialize Firebase Admin SDK.
+const getDb = () => {
+  if (!getApps().length) {
+    initializeApp({
+      credential: credential.applicationDefault(),
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    });
+  }
+  return getFirestore();
+}
+
 export async function storeCallRecord(input: StoreCallRecordInput): Promise<{ id: string }> {
   return storeCallRecordFlow(input);
 }
@@ -59,6 +61,7 @@ const storeCallRecordFlow = ai.defineFlow(
     outputSchema: z.object({ id: z.string() }),
   },
   async (data) => {
+    const db = getDb();
     const callRecord = {
       ...data,
       createdAt: new Date(),
