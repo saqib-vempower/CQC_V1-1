@@ -1,6 +1,6 @@
 import {genkit, service} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai';
-import firebase from '@genkit-ai/firebase';
+import {firebase} from '@genkit-ai/firebase';
 import type {Firestore} from 'firebase-admin/firestore';
 
 export const ai = genkit({
