@@ -34,6 +34,7 @@ import { createCustomToken } from '@/ai/flows/create-custom-token';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
+  password: z.string().min(1, { message: 'Password is required.' }),
 });
 
 export default function LoginPage() {
@@ -45,6 +46,7 @@ export default function LoginPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
+      password: '',
     },
   });
   
@@ -87,7 +89,7 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle className="text-2xl">Login</CardTitle>
             <CardDescription>
-              Enter your email below to login to your account.
+              Enter your email and password below to login.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -108,6 +110,23 @@ export default function LoginPage() {
                     <FormMessage />
                     </FormItem>
                 )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="********"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
                 <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
