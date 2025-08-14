@@ -11,7 +11,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps, App } from 'firebase-admin/app';
+import { initializeApp, getApps } from 'firebase-admin/app';
 
 // This schema should match the structure of what's saved in store-call-record.ts
 const StoredCallRecordSchema = z.object({
@@ -46,13 +46,10 @@ const GetAllCallsOutputSchema = z.object({
     calls: z.array(StoredCallRecordSchema)
 });
 
-// Helper function to initialize Firebase Admin SDK.
-const getAdminApp = (): App => {
-    if (getApps().length) {
-        return getApps()[0]!;
-    }
-    return initializeApp();
-};
+// Initialize Firebase Admin SDK if it hasn't been already.
+if (!getApps().length) {
+  initializeApp();
+}
 
 export async function getAllCalls(): Promise<{ calls: StoredCallRecord[] }> {
   return getAllCallsFlow();
@@ -65,8 +62,7 @@ const getAllCallsFlow = ai.defineFlow(
     outputSchema: GetAllCallsOutputSchema,
   },
   async () => {
-    const app = getAdminApp();
-    const db = getFirestore(app);
+    const db = getFirestore();
     const callsSnapshot = await db.collection('calls').get();
     
     const calls: StoredCallRecord[] = [];

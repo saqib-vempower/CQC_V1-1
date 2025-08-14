@@ -12,7 +12,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { google } from 'googleapis';
 import type { StoredCallRecord } from './get-all-calls';
-import { getApps, initializeApp, App } from 'firebase-admin/app';
+import { initializeApp, getApps } from 'firebase-admin/app';
 import { GoogleAuth } from 'google-auth-library';
 
 const ExportToSheetsInputSchema = z.object({
@@ -30,18 +30,13 @@ const SHEET_IDS: Record<string, string | undefined> = {
   'Rockhurst University': process.env.SHEET_ID_RU,
 };
 
-// Helper function to initialize Firebase Admin SDK if not already done.
-const getAdminApp = (): App => {
-    if (getApps().length) {
-        return getApps()[0]!;
-    }
-    return initializeApp();
-};
+// Initialize Firebase Admin SDK if it hasn't been already.
+if (!getApps().length) {
+  initializeApp();
+}
 
 // Helper function to get authenticated Google Sheets client
 const getSheetsClient = () => {
-    getAdminApp(); // Ensure Firebase Admin is initialized, needed for project context
-    
     const auth = new GoogleAuth({
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
