@@ -12,7 +12,8 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { google } from 'googleapis';
 import type { StoredCallRecord } from './get-all-calls';
-import { credential, getApps, initializeApp, App } from 'firebase-admin/app';
+import { getApps, initializeApp, App } from 'firebase-admin/app';
+import { GoogleAuth } from 'google-auth-library';
 
 const ExportToSheetsInputSchema = z.object({
   records: z.array(z.any()).describe("An array of call records to export."),
@@ -31,47 +32,21 @@ const SHEET_IDS: Record<string, string | undefined> = {
 
 // Helper function to initialize Firebase Admin SDK if not already done.
 const getAdminApp = (): App => {
-    const apps = getApps();
-    if (apps.length) {
-        return apps[0]!;
+    if (getApps().length) {
+        return getApps()[0]!;
     }
-
-    const serviceAccountStr = process.env.GOOGLE_CREDENTIALS;
-    if (!serviceAccountStr) {
-        throw new Error('GOOGLE_CREDENTIALS environment variable is not set.');
-    }
-
-    try {
-        const serviceAccount = JSON.parse(serviceAccountStr);
-        return initializeApp({
-            credential: credential.cert(serviceAccount),
-        });
-    } catch (e) {
-        console.error("Failed to parse GOOGLE_CREDENTIALS:", e);
-        throw new Error("Could not initialize Firebase Admin SDK.");
-    }
+    return initializeApp();
 };
 
 // Helper function to get authenticated Google Sheets client
 const getSheetsClient = () => {
-    getAdminApp(); // Ensure Firebase Admin is initialized
+    getAdminApp(); // Ensure Firebase Admin is initialized, needed for project context
     
-    const serviceAccountStr = process.env.GOOGLE_CREDENTIALS;
-    if (!serviceAccountStr) {
-        throw new Error("Google credentials are not set up correctly.");
-    }
+    const auth = new GoogleAuth({
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
     
-    try {
-        const credentials = JSON.parse(serviceAccountStr);
-        const auth = new google.auth.GoogleAuth({
-            credentials,
-            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-        });
-        return google.sheets({ version: 'v4', auth });
-    } catch (e) {
-        console.error("Failed to parse GOOGLE_CREDENTIALS for Sheets:", e);
-        throw new Error("Could not create Sheets client.");
-    }
+    return google.sheets({ version: 'v4', auth });
 };
 
 export async function exportToSheets(input: ExportToSheetsInput): Promise<{ success: boolean; message: string; }> {

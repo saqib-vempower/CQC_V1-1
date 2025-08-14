@@ -11,7 +11,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps, App, credential } from 'firebase-admin/app';
+import { initializeApp, getApps, App } from 'firebase-admin/app';
 
 const StoreCallRecordInputSchema = z.object({
   userId: z.string().describe('The ID of the user who performed the analysis.'),
@@ -41,25 +41,10 @@ export type StoreCallRecordInput = z.infer<typeof StoreCallRecordInputSchema>;
 
 // Helper function to initialize Firebase Admin SDK.
 const getAdminApp = (): App => {
-    const apps = getApps();
-    if (apps.length) {
-        return apps[0]!;
+    if (getApps().length) {
+        return getApps()[0]!;
     }
-
-    const serviceAccountStr = process.env.GOOGLE_CREDENTIALS;
-    if (!serviceAccountStr) {
-        throw new Error('GOOGLE_CREDENTIALS environment variable is not set.');
-    }
-
-    try {
-        const serviceAccount = JSON.parse(serviceAccountStr);
-        return initializeApp({
-            credential: credential.cert(serviceAccount),
-        });
-    } catch (e) {
-        console.error("Failed to parse GOOGLE_CREDENTIALS:", e);
-        throw new Error("Could not initialize Firebase Admin SDK.");
-    }
+    return initializeApp();
 };
 
 export async function storeCallRecord(input: StoreCallRecordInput): Promise<{ id: string }> {
