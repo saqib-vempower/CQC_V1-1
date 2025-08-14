@@ -4,9 +4,6 @@
 import { useState } from 'react';
 import { Header } from '@/components/cqc/header';
 import { CallUploadForm } from '@/components/cqc/call-upload-form';
-import type { User } from 'firebase/auth';
-import { useAuth } from '@/components/cqc/auth-provider';
-import { useRouter } from 'next/navigation';
 
 export type Word = {
     text: string;
@@ -42,8 +39,6 @@ export type CallData = {
 
 
 export default function AuditsPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
   const [callData, setCallData] = useState<CallData>({
     universityName: '',
     domain: '',
@@ -51,25 +46,9 @@ export default function AuditsPage() {
     rubricScores: {},
   });
 
-  if (loading) {
-    return (
-        <div className="flex flex-col min-h-screen bg-background">
-            <Header />
-            <div className="flex-grow flex items-center justify-center">
-                <p>Loading...</p>
-            </div>
-        </div>
-    )
-  }
-
-  if (!user && !loading) {
-    router.push('/login');
-    return null;
-  }
-
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
-      <Header user={user} />
+      <Header />
       <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="mt-8">
             <CallUploadForm 

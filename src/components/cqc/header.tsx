@@ -1,53 +1,12 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Compass, LogOut, ShieldCheck, Home } from 'lucide-react';
+import { Compass, Home, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { auth, db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import type { User } from 'firebase/auth';
 
-type HeaderProps = {
-  user?: User | null;
-}
-
-export function Header({ user }: HeaderProps) {
-  const [canViewDashboard, setCanViewDashboard] = useState(false);
-  const homePath = user ? '/home' : '/';
-
-  useEffect(() => {
-    const checkRole = async () => {
-      if (user) {
-        try {
-          // Use user.uid for lookup, as it's the email in our custom auth setup
-          const userDocRef = doc(db, 'AllowedUsers', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const userRole = userDoc.data().role;
-            if (userRole === 'admin' || userRole === 'qa_reviewer') {
-                setCanViewDashboard(true);
-            } else {
-                setCanViewDashboard(false);
-            }
-          } else {
-            setCanViewDashboard(false);
-          }
-        } catch (error) {
-            console.error("Failed to check user role", error);
-            setCanViewDashboard(false);
-        }
-      } else {
-        setCanViewDashboard(false);
-      }
-    };
-    checkRole();
-  }, [user]);
-
-  const handleSignOut = async () => {
-    await auth.signOut();
-  };
+export function Header() {
+  const homePath = '/';
 
   return (
     <header className="border-b bg-card">
@@ -61,28 +20,20 @@ export function Header({ user }: HeaderProps) {
                 </h1>
             </Link>
           </div>
-          {user && (
-            <div className='flex items-center gap-4'>
-              <span className='text-sm text-muted-foreground'>Welcome!</span>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/home">
-                    <Home className="mr-2 h-4 w-4" />
-                    Home
-                  </Link>
-                </Button>
-              {canViewDashboard && (
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/admin">
-                    <ShieldCheck className="mr-2 h-4 w-4" />
-                    Dashboard
-                  </Link>
-                </Button>
-              )}
-              <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign Out">
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+          <div className='flex items-center gap-4'>
+            <Button variant="outline" size="sm" asChild>
+                <Link href="/">
+                <Home className="mr-2 h-4 w-4" />
+                Home
+                </Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+                <Link href="/admin">
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                Dashboard
+                </Link>
+            </Button>
+          </div>
         </div>
       </div>
     </header>

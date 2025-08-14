@@ -4,7 +4,6 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { getAllCalls, StoredCallRecord } from '@/ai/flows/get-all-calls';
-import { useAuth } from '@/components/cqc/auth-provider';
 import { Header } from '@/components/cqc/header';
 import {
   Table,
@@ -23,7 +22,6 @@ import { exportToSheets } from '@/ai/flows/export-to-sheets';
 
 
 export function AdminDashboard() {
-  const { user } = useAuth();
   const [calls, setCalls] = useState<StoredCallRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -82,7 +80,7 @@ export function AdminDashboard() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
-      <Header user={user} />
+      <Header />
       <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="grid gap-8">
             <Card>

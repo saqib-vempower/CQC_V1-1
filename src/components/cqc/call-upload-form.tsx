@@ -33,7 +33,6 @@ import {
 import { Separator } from '../ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '../ui/progress';
-import { useAuth } from './auth-provider';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 import { scoreRubric } from '@/ai/flows/score-rubric';
 import { analyzeCallTranscript } from '@/ai/flows/analyze-call-transcript';
@@ -84,7 +83,6 @@ interface ProcessedFile extends CallFile {
 
 export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
   const { toast } = useToast();
-  const { user } = useAuth();
   const [processedFiles, setProcessedFiles] = useState<ProcessedFile[]>([]);
   const [isAuditing, setIsAuditing] = useState(false);
   const [overallProgress, setOverallProgress] = useState(0);
@@ -119,11 +117,6 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!user) {
-        toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in.' });
-        return;
-    }
-    
     setIsAuditing(true);
     setOverallProgress(0);
 
@@ -179,7 +172,7 @@ export function CallUploadForm({ setCallData, callData }: CallUploadFormProps) {
             });
             
             await storeCallRecord({
-                userId: user.uid,
+                userId: 'public_user', // Since auth is removed
                 universityName: values.universityName,
                 domain: values.domain,
                 callDate: values.callDate ? format(values.callDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
