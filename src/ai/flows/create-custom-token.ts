@@ -13,8 +13,7 @@ const CreateCustomTokenOutputSchema = z.object({
   token: z.string(),
 });
 
-// Initialize Firebase Admin SDK if it hasn't been already.
-// This is still needed for getAuth(), as it's not part of the genkit service connector.
+// Initialize Firebase Admin SDK if it hasn't been already for getAuth()
 if (!getApps().length) {
   initializeApp();
 }
@@ -30,6 +29,7 @@ const createCustomTokenFlow = ai.defineFlow(
     name: 'createCustomTokenFlow',
     inputSchema: CreateCustomTokenInputSchema,
     outputSchema: CreateCustomTokenOutputSchema,
+    middleware: ['firebase'],
   },
   async ({uid}) => {
     const auth = getAuth();

@@ -1,20 +1,18 @@
 import {genkit, service} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai';
 import {firebase} from '@genkit-ai/firebase';
+import type {Firestore} from 'firebase-admin/firestore';
 
 export const ai = genkit({
   plugins: [
     googleAI(),
-    // Configure the Genkit Firebase plugin.
-    // This will automatically configure the Admin SDK for use in server
-    // environments, including connecting to emulators if configured.
-    firebase(),
+    firebase(), // Genkit will auto-configure based on GOOGLE_CREDENTIALS
   ],
   services: [
-    // Make the Firestore service available to flows.
+    // Make the Firestore service available to flows that import `ai`.
     service('firestore', {
-      functions: (client) => ({
-        db: () => client,
+      functions: (client: {firestore: () => Firestore}) => ({
+        db: () => client.firestore(),
       }),
     }),
   ],
