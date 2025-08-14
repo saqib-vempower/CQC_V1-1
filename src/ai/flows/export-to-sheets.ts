@@ -12,7 +12,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { google } from 'googleapis';
 import type { StoredCallRecord } from './get-all-calls';
-import { credential, getApps, initializeApp } from 'firebase-admin/app';
+import { credential, getApps, initializeApp, App } from 'firebase-admin/app';
 
 const ExportToSheetsInputSchema = z.object({
   records: z.array(z.any()).describe("An array of call records to export."),
@@ -29,51 +29,49 @@ const SHEET_IDS: Record<string, string | undefined> = {
   'Rockhurst University': process.env.SHEET_ID_RU,
 };
 
+// Helper function to initialize Firebase Admin SDK if not already done.
+const getAdminApp = (): App => {
+    const apps = getApps();
+    if (apps.length) {
+        return apps[0]!;
+    }
+
+    const serviceAccountStr = process.env.GOOGLE_CREDENTIALS;
+    if (!serviceAccountStr) {
+        throw new Error('GOOGLE_CREDENTIALS environment variable is not set.');
+    }
+
+    try {
+        const serviceAccount = JSON.parse(serviceAccountStr);
+        return initializeApp({
+            credential: credential.cert(serviceAccount),
+        });
+    } catch (e) {
+        console.error("Failed to parse GOOGLE_CREDENTIALS:", e);
+        throw new Error("Could not initialize Firebase Admin SDK.");
+    }
+};
+
 // Helper function to get authenticated Google Sheets client
 const getSheetsClient = () => {
-    // Ensure Firebase Admin is initialized to leverage its authentication context if needed
-    if (!getApps().length) {
-        if (process.env.GOOGLE_CREDENTIALS) {
-            try {
-                const serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-                initializeApp({
-                    credential: credential.cert(serviceAccount),
-                });
-            } catch (e) {
-                console.error("Failed to parse GOOGLE_CREDENTIALS:", e);
-            }
-        } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-             initializeApp({
-                credential: credential.applicationDefault(),
-            });
-        } else {
-            initializeApp();
-        }
+    getAdminApp(); // Ensure Firebase Admin is initialized
+    
+    const serviceAccountStr = process.env.GOOGLE_CREDENTIALS;
+    if (!serviceAccountStr) {
+        throw new Error("Google credentials are not set up correctly.");
     }
     
-    // Check for explicit service account credentials in env for Google Sheets API
-    if (process.env.GOOGLE_CREDENTIALS) {
-        try {
-            const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-            const auth = new google.auth.GoogleAuth({
-                credentials,
-                scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-            });
-            return google.sheets({ version: 'v4', auth });
-        } catch (e) {
-            console.error("Failed to parse GOOGLE_CREDENTIALS for Sheets:", e);
-        }
-    }
-    
-    // Fallback to application default credentials if available
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    try {
+        const credentials = JSON.parse(serviceAccountStr);
         const auth = new google.auth.GoogleAuth({
+            credentials,
             scopes: ['https://www.googleapis.com/auth/spreadsheets'],
         });
         return google.sheets({ version: 'v4', auth });
+    } catch (e) {
+        console.error("Failed to parse GOOGLE_CREDENTIALS for Sheets:", e);
+        throw new Error("Could not create Sheets client.");
     }
-
-    throw new Error("Google credentials are not set up correctly.");
 };
 
 export async function exportToSheets(input: ExportToSheetsInput): Promise<{ success: boolean; message: string; }> {

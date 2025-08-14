@@ -17,29 +17,25 @@ const ValidateUserOutputSchema = z.object({
 
 // Helper function to initialize Firebase Admin SDK if not already done.
 const getAdminApp = (): App => {
-    if (getApps().length) {
-        return getApps()[0]!;
+    const apps = getApps();
+    if (apps.length) {
+        return apps[0]!;
     }
-    // Check for explicit service account credentials in env.
-    if (process.env.GOOGLE_CREDENTIALS) {
-        try {
-            const serviceAccount = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-            return initializeApp({
-                credential: credential.cert(serviceAccount),
-            });
-        } catch (e) {
-            console.error("Failed to parse GOOGLE_CREDENTIALS:", e);
-            // Fallthrough to default initialization if parsing fails
-        }
+
+    const serviceAccountStr = process.env.GOOGLE_CREDENTIALS;
+    if (!serviceAccountStr) {
+        throw new Error('GOOGLE_CREDENTIALS environment variable is not set.');
     }
-    // In a deployed environment, GOOGLE_APPLICATION_CREDENTIALS might be set.
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+
+    try {
+        const serviceAccount = JSON.parse(serviceAccountStr);
         return initializeApp({
-            credential: credential.applicationDefault(),
+            credential: credential.cert(serviceAccount),
         });
+    } catch (e) {
+        console.error("Failed to parse GOOGLE_CREDENTIALS:", e);
+        throw new Error("Could not initialize Firebase Admin SDK.");
     }
-    // Fallback for local development or environments without explicit credentials.
-    return initializeApp();
 };
 
 
