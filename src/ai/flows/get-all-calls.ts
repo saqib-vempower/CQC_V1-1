@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -8,10 +7,10 @@
  * - StoredCallRecord - The type for a single stored call record.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'zod';
-import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps } from 'firebase-admin/app';
+import {ai} from '@/ai/genkit';
+import {z} from 'zod';
+import {service} from 'genkit';
+import type {Timestamp} from 'firebase-admin/firestore';
 
 // This schema should match the structure of what's saved in store-call-record.ts
 const StoredCallRecordSchema = z.object({
@@ -27,11 +26,15 @@ const StoredCallRecordSchema = z.object({
   sentiment: z.string(),
   rubricScores: z.record(z.string(), z.number()),
   audioMetrics: z.string().optional(),
-  timestamps: z.array(z.object({
-    segment: z.string(),
-    startTime: z.string(),
-    endTime: z.string(),
-  })).optional(),
+  timestamps: z
+    .array(
+      z.object({
+        segment: z.string(),
+        startTime: z.string(),
+        endTime: z.string(),
+      })
+    )
+    .optional(),
   analysis: z.object({
     agentBehaviorAssessment: z.string(),
     feedback: z.string(),
@@ -43,15 +46,10 @@ const StoredCallRecordSchema = z.object({
 export type StoredCallRecord = z.infer<typeof StoredCallRecordSchema>;
 
 const GetAllCallsOutputSchema = z.object({
-    calls: z.array(StoredCallRecordSchema)
+  calls: z.array(StoredCallRecordSchema),
 });
 
-// Initialize Firebase Admin SDK if it hasn't been already.
-if (!getApps().length) {
-  initializeApp();
-}
-
-export async function getAllCalls(): Promise<{ calls: StoredCallRecord[] }> {
+export async function getAllCalls(): Promise<{calls: StoredCallRecord[]}> {
   return getAllCallsFlow();
 }
 
@@ -62,17 +60,17 @@ const getAllCallsFlow = ai.defineFlow(
     outputSchema: GetAllCallsOutputSchema,
   },
   async () => {
-    const db = getFirestore();
+    const db = service('firestore').db();
     const callsSnapshot = await db.collection('calls').get();
-    
+
     const calls: StoredCallRecord[] = [];
-    callsSnapshot.forEach(doc => {
+    callsSnapshot.forEach((doc) => {
       const data = doc.data();
       // Firestore Timestamps need to be converted
-      const createdAt = data.createdAt.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
-      calls.push({ id: doc.id, ...data, createdAt } as StoredCallRecord);
+      const createdAt = (data.createdAt as Timestamp).toDate().toISOString();
+      calls.push({id: doc.id, ...data, createdAt} as StoredCallRecord);
     });
 
-    return { calls };
+    return {calls};
   }
 );

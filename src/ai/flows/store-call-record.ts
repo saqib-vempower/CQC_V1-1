@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -8,10 +7,10 @@
  * - StoreCallRecordInput - The input type for the storeCallRecord function.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'zod';
-import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps } from 'firebase-admin/app';
+import {ai} from '@/ai/genkit';
+import {z} from 'zod';
+import {service} from 'genkit';
+import {Timestamp} from 'firebase-admin/firestore';
 
 const StoreCallRecordInputSchema = z.object({
   userId: z.string().describe('The ID of the user who performed the analysis.'),
@@ -23,28 +22,34 @@ const StoreCallRecordInputSchema = z.object({
   applicantId: z.string().describe('The ID of the applicant.'),
   transcript: z.string().describe('The full transcript of the call.'),
   sentiment: z.string().describe('The overall sentiment of the call.'),
-  rubricScores: z.record(z.string(), z.number()).describe('The scores from the rubric.'),
+  rubricScores: z
+    .record(z.string(), z.number())
+    .describe('The scores from the rubric.'),
   audioMetrics: z.string().optional().describe('Notes on audio metrics.'),
-  timestamps: z.array(z.object({
-    segment: z.string(),
-    startTime: z.string(),
-    endTime: z.string(),
-  })).optional().describe('Notable timestamps in the call.'),
-  analysis: z.object({
-    agentBehaviorAssessment: z.string(),
-    feedback: z.string(),
-  }).describe('The AI-generated analysis of the call.'),
+  timestamps: z
+    .array(
+      z.object({
+        segment: z.string(),
+        startTime: z.string(),
+        endTime: z.string(),
+      })
+    )
+    .optional()
+    .describe('Notable timestamps in the call.'),
+  analysis: z
+    .object({
+      agentBehaviorAssessment: z.string(),
+      feedback: z.string(),
+    })
+    .describe('The AI-generated analysis of the call.'),
   coachingTips: z.array(z.string()).describe('The AI-generated coaching tips.'),
 });
 
 export type StoreCallRecordInput = z.infer<typeof StoreCallRecordInputSchema>;
 
-// Initialize Firebase Admin SDK if it hasn't been already.
-if (!getApps().length) {
-  initializeApp();
-}
-
-export async function storeCallRecord(input: StoreCallRecordInput): Promise<{ id: string }> {
+export async function storeCallRecord(
+  input: StoreCallRecordInput
+): Promise<{id: string}> {
   return storeCallRecordFlow(input);
 }
 
@@ -52,15 +57,15 @@ const storeCallRecordFlow = ai.defineFlow(
   {
     name: 'storeCallRecordFlow',
     inputSchema: StoreCallRecordInputSchema,
-    outputSchema: z.object({ id: z.string() }),
+    outputSchema: z.object({id: z.string()}),
   },
   async (data) => {
-    const db = getFirestore();
+    const db = service('firestore').db();
     const callRecord = {
       ...data,
-      createdAt: new Date(),
+      createdAt: Timestamp.now(),
     };
     const docRef = await db.collection('calls').add(callRecord);
-    return { id: docRef.id };
+    return {id: docRef.id};
   }
 );

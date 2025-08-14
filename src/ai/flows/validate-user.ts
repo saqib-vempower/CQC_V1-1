@@ -1,10 +1,8 @@
-
 'use server';
 
-import { ai } from '@/ai/genkit';
-import { z } from 'zod';
-import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps } from 'firebase-admin/app';
+import {ai} from '@/ai/genkit';
+import {z} from 'zod';
+import {service} from 'genkit';
 
 const ValidateUserInputSchema = z.object({
   email: z.string().email(),
@@ -15,13 +13,10 @@ const ValidateUserOutputSchema = z.object({
   userId: z.string().optional(),
 });
 
-// Initialize Firebase Admin SDK if it hasn't been already.
-if (!getApps().length) {
-  initializeApp();
-}
-
-export async function validateUser(input: z.infer<typeof ValidateUserInputSchema>): Promise<z.infer<typeof ValidateUserOutputSchema>> {
-    return validateUserFlow(input);
+export async function validateUser(
+  input: z.infer<typeof ValidateUserInputSchema>
+): Promise<z.infer<typeof ValidateUserOutputSchema>> {
+  return validateUserFlow(input);
 }
 
 const validateUserFlow = ai.defineFlow(
@@ -30,16 +25,18 @@ const validateUserFlow = ai.defineFlow(
     inputSchema: ValidateUserInputSchema,
     outputSchema: ValidateUserOutputSchema,
   },
-  async ({ email }) => {
-    const db = getFirestore();
-    const allowedUsersCollection = db.collection('AllowedUsers');
+  async ({email}) => {
+    // Get an authenticated Firestore client from the service defined in genkit.ts
+    const firestore = service('firestore').db();
+
+    const allowedUsersCollection = firestore.collection('AllowedUsers');
     const userDoc = await allowedUsersCollection.doc(email).get();
 
     if (userDoc.exists) {
-        // The user ID is the email itself for custom token generation
-        return { isValid: true, userId: email };
+      // The user ID is the email itself for custom token generation
+      return {isValid: true, userId: email};
     } else {
-        return { isValid: false };
+      return {isValid: false};
     }
   }
 );
