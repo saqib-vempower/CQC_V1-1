@@ -1,94 +1,87 @@
 'use server';
 
-/**
- * @fileOverview A flow to transcribe audio files using AssemblyAI.
- *
- * - transcribeAudio - A function that handles the audio transcription process.
- * - TranscribeAudioInput - The input type for the transcribeAudio function.
- * - TranscribeAudioOutput - The return type for the transcribeAudio function.
- */
-
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { onObjectFinalized } from 'firebase-functions/v2/storage';
+import { getStorage } from 'firebase-admin/storage';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, getApps } from 'firebase-admin/app';
 import { AssemblyAI } from 'assemblyai';
 
-const TranscribeAudioInputSchema = z.object({
-  audioDataUri: z
-    .string()
-    .describe(
-      "The audio file to transcribe, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
-    ),
-});
-export type TranscribeAudioInput = z.infer<typeof TranscribeAudioInputSchema>;
-
-const TranscribeAudioOutputSchema = z.object({
-  transcript: z.string().describe('The transcribed text of the audio file.'),
-  words: z.array(z.object({
-    text: z.string(),
-    start: z.number(),
-    end: z.number(),
-    speaker: z.string().nullable(),
-  })).describe('Word-level timestamps and speaker labels.'),
-  sentiment: z.string().describe('Overall sentiment of the call.'),
-});
-export type TranscribeAudioOutput = z.infer<typeof TranscribeAudioOutputSchema>;
-
-export async function transcribeAudio(input: TranscribeAudioInput): Promise<TranscribeAudioOutput> {
-  return transcribeAudioFlow(input);
+if (!getApps().length) {
+  initializeApp();
 }
 
-const transcribeAudioFlow = ai.defineFlow(
-  {
-    name: 'transcribeAudioFlow',
-    inputSchema: TranscribeAudioInputSchema,
-    outputSchema: TranscribeAudioOutputSchema,
-  },
-  async ({ audioDataUri }) => {
+const db = getFirestore();
+const storage = getStorage();
+
+exports.transcribeAudio = onObjectFinalized({ cpu: 2 }, async (event) => {
+  const fileBucket = event.bucket;
+  const filePath = event.data.name;
+  const contentType = event.data.contentType;
+
+  if (!contentType?.startsWith('audio/')) {
+    console.log('This is not an audio file.');
+    return;
+  }
+
+  if (!filePath.startsWith('uploads/')) {
+    console.log('This is not a new upload.');
+    return;
+  }
+
+  const fileName = filePath.split('/').pop();
+  if (!fileName) {
+    console.error('Could not extract file name from path.');
+    return;
+  }
+
+  const callsRef = db.collection('calls');
+  const query = callsRef.where('fileName', '==', fileName);
+  const snapshot = await query.get();
+
+  if (snapshot.empty) {
+    console.log('No matching call document found.');
+    return;
+  }
+
+  const callDoc = snapshot.docs[0];
+  const callId = callDoc.id;
+
+  try {
+    await callDoc.ref.update({ status: 'Transcribing' });
+
+    const bucket = storage.bucket(fileBucket);
+    const file = bucket.file(filePath);
+    const [audioData] = await file.download();
+
     const client = new AssemblyAI({
       apiKey: process.env.ASSEMBLYAI_API_KEY,
     });
 
     const transcript = await client.transcripts.transcribe({
-      audio: audioDataUri,
+      audio: audioData,
       speaker_labels: true,
-      sentiment_analysis: true,
     });
 
     if (transcript.status === 'error') {
       throw new Error(`Transcription failed: ${transcript.error}`);
     }
 
-    const words = (transcript.words || []).map(word => ({
-      text: word.text,
-      start: word.start,
-      end: word.end,
-      speaker: word.speaker,
-    }));
-
-    const overallSentiment = transcript.sentiment_analysis_results?.reduce(
-      (acc, result) => {
-        if (result.sentiment === 'POSITIVE') acc.positive++;
-        else if (result.sentiment === 'NEGATIVE') acc.negative++;
-        else acc.neutral++;
-        return acc;
-      },
-      { positive: 0, negative: 0, neutral: 0 }
-    );
-
-    let sentiment = 'NEUTRAL';
-    if(overallSentiment) {
-        if (overallSentiment.positive > overallSentiment.negative && overallSentiment.positive > overallSentiment.neutral) {
-            sentiment = 'POSITIVE';
-        } else if (overallSentiment.negative > overallSentiment.positive && overallSentiment.negative > overallSentiment.neutral) {
-            sentiment = 'NEGATIVE';
-        }
-    }
-
-
-    return {
-      transcript: transcript.text || '',
-      words: words,
-      sentiment: sentiment,
+    const transcriptData = {
+      fullText: transcript.text,
+      utterances: transcript.utterances?.map((u) => ({
+        speaker: u.speaker,
+        text: u.text,
+        start: u.start,
+        end: u.end,
+      })),
     };
+
+    await db.collection('calls').doc(callId).collection('transcript').doc('data').set(transcriptData);
+    await callDoc.ref.update({ status: 'Transcribed' });
+
+    console.log('Transcription successful.');
+  } catch (error) {
+    console.error('Error during transcription:', error);
+    await callDoc.ref.update({ status: 'Error' });
   }
-);
+});
