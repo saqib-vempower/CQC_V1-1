@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -9,6 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { Home } from 'lucide-react';
 
 interface Utterance {
   speaker: string;
@@ -121,7 +125,15 @@ export default function AuditResultsPage() {
             {callData.university} | {callData.domain} | {callData.callType}
           </p>
         </div>
-        <Badge>{callData.status}</Badge>
+        <div className="flex items-center gap-4">
+          <Badge>{callData.status}</Badge>
+          <Button asChild variant="outline">
+            <Link href="/home">
+              <Home className="mr-2" />
+              Home
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {score && (
