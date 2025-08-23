@@ -117,8 +117,7 @@ const Hero = () => (
           {brand.tagline}
         </h1>
         <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
-          Audit calls consistently with timestamped evidence, objective metrics,
-          and a transparent 10‑criterion rubric.
+          AI-powered call auditing tool to empower agents.
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
           <a
