@@ -91,7 +91,7 @@ const NavBar = ({ brand }) => (
 const Hero = ({ brand }) => (
     <section id="home" className="container flex flex-col items-center justify-center py-20 md:py-32 text-center">
         <motion.div initial="hidden" animate="show" variants={fadeIn()} className="flex flex-col items-center gap-6">
-            <CompassIcon className="w-16 h-16 text-primary" />
+            <CompassIcon className="w-12 h-12 text-primary" />
             <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl">
                 {brand.name}
             </h1>
