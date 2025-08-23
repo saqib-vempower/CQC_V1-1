@@ -46,7 +46,7 @@ export default function LoginPage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-full max-w-sm">
           <AlertDialogHeader>
             <AlertDialogTitle>Login Failed</AlertDialogTitle>
             <AlertDialogDescription>
