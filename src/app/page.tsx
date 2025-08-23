@@ -324,14 +324,6 @@ const FAQ = () => (
           </details>
         ))}
       </div>
-      <div id="get-started" className="mt-12 text-center">
-        <a
-          href="/login"
-          className={`inline-flex items-center gap-2 ${brand.accent} ${brand.accentHover} text-white px-6 py-3 rounded-xl shadow-md`}
-        >
-          <Icon path={icons.check} className="w-5 h-5" /> Create your account
-        </a>
-      </div>
     </div>
   </section>
 );
