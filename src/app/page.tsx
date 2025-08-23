@@ -65,9 +65,6 @@ const NavBar = () => (
         <span>{brand.name}</span>
       </a>
       <nav className="hidden md:flex items-center gap-6 text-sm text-gray-600">
-        <a href="#features" className="hover:text-gray-900">
-          Features
-        </a>
         <a href="#flow" className="hover:text-gray-900">
           How it works
         </a>
