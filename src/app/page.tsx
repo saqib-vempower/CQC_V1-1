@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 // ──────────────────────────────────────────────────────────────
 // Brand knobs — tweak here
@@ -109,12 +110,12 @@ const Hero = () => (
         </p>
 
         <div className="mt-10">
-          <a
+          <Link
             href="/login"
             className="inline-flex items-center justify-center text-sm font-medium text-white bg-[#3B5998] hover:bg-[#334a80] px-5 py-3 rounded-xl shadow-md"
           >
             Get Started
-          </a>
+          </Link>
         </div>
 
         <div className="mt-10 text-xs text-gray-500">
