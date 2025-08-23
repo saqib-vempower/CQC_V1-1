@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -14,8 +15,6 @@ import {
 import { useAuth } from './auth-provider';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
-import { SidebarTrigger } from '../ui/sidebar';
-
 
 export function Header() {
   const { user, userProfile } = useAuth();
@@ -26,7 +25,7 @@ export function Header() {
     router.push('/login');
   };
 
-  const homePath = userProfile?.role === 'Admin' ? '/home' : userProfile?.role === 'QA' ? '/qa' : '/agent';
+  const homePath = '/';
 
   return (
     <header className="border-b bg-card sticky top-0 z-10">
@@ -61,9 +60,6 @@ export function Header() {
                     </DropdownMenuContent>
                 </DropdownMenu>
             )}
-            <div className="md:hidden">
-              <SidebarTrigger />
-            </div>
           </div>
         </div>
       </div>

@@ -35,7 +35,7 @@ export default function LoginPage() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast({ title: 'Login Successful', description: 'Welcome back!' });
-      router.push('/home');
+      router.push('/');
     } catch (error: any) {
       setIsAlertOpen(true);
     } finally {

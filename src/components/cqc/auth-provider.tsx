@@ -1,3 +1,4 @@
+
 'use client';
 
 import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
@@ -62,10 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAuthPage = AUTH_PAGES.includes(pathname);
     const isPublicPage = PUBLIC_PAGES.includes(pathname);
 
+    // If user is not logged in and not on a public/auth page, redirect to login
     if (!user && !isAuthPage && !isPublicPage) {
       router.push('/login');
-    } else if (user && (isAuthPage || isPublicPage)) {
-        router.push('/home');
+    } 
+    // If user is logged in and on the login page, redirect to landing page
+    else if (user && isAuthPage) {
+        router.push('/');
     }
   }, [user, userProfile, loading, pathname, router]);
 
