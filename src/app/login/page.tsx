@@ -51,7 +51,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
+    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-1 xl:min-h-screen">
       <AlertDialog open={!!error} onOpenChange={() => setError('')}>
         <AlertDialogContent className="max-w-sm">
           <AlertDialogHeader>
@@ -105,16 +105,6 @@ export default function LoginPage() {
             </Button>
           </div>
         </div>
-      </div>
-      <div className="hidden bg-muted lg:block">
-        <Image
-          src="https://placehold.co/1920x1080.png"
-          alt="Image"
-          data-ai-hint="abstract geometric"
-          width="1920"
-          height="1080"
-          className="h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
-        />
       </div>
     </div>
   );
