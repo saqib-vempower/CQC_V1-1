@@ -113,12 +113,6 @@ const Hero = () => (
         variants={fadeIn()}
         className="text-center"
       >
-        <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700">
-          <span className="inline-flex items-center gap-1 text-[#3B5998]">
-            <Icon path={icons.wand} className="w-4 h-4" /> AI‑assisted QA
-          </span>
-          <span>Upload → Transcribe → Metrics → Score</span>
-        </div>
         <h1 className="mt-5 text-4xl md:text-6xl font-extrabold tracking-tight text-gray-900">
           {brand.tagline}
         </h1>
