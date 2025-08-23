@@ -3,9 +3,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, db } from '@/lib/firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDocs, collection } from 'firebase/firestore';
+import { auth } from '@/lib/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,27 +20,11 @@ export default function LoginPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const handleAuth = async (authAction: 'login' | 'signup') => {
+  const handleLogin = async () => {
     setIsLoading(true);
     try {
-      if (authAction === 'login') {
-        await signInWithEmailAndPassword(auth, email, password);
-        toast({ title: 'Login Successful', description: 'Welcome back!' });
-      } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-
-        const usersCollection = collection(db, 'users');
-        const userDocs = await getDocs(usersCollection);
-        const isAdmin = userDocs.empty;
-
-        await setDoc(doc(db, 'users', user.uid), {
-          uid: user.uid,
-          email: user.email,
-          role: isAdmin ? 'Admin' : 'Agent',
-        });
-        toast({ title: 'Sign Up Successful', description: 'Your account has been created.' });
-      }
+      await signInWithEmailAndPassword(auth, email, password);
+      toast({ title: 'Login Successful', description: 'Welcome back!' });
       router.push('/home');
     } catch (error: any) {
       toast({
@@ -80,13 +63,9 @@ export default function LoginPage() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button className="w-full" onClick={() => handleAuth('login')} disabled={isLoading}>
+          <Button className="w-full" onClick={handleLogin} disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 animate-spin" />}
             Sign in
-          </Button>
-          <Button variant="outline" className="w-full" onClick={() => handleAuth('signup')} disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 animate-spin" />}
-            Sign up
           </Button>
         </CardFooter>
       </Card>
