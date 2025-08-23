@@ -341,12 +341,6 @@ const Footer = () => (
       </div>
       <div className="text-sm text-gray-600 flex items-center gap-4">
         <a href="#" className="hover:text-gray-900">
-          Terms
-        </a>
-        <a href="#" className="hover:text-gray-900">
-          Privacy
-        </a>
-        <a href="#" className="hover:text-gray-900">
           Contact
         </a>
       </div>
