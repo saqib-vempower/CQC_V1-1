@@ -110,12 +110,12 @@ const Hero = () => (
         </p>
 
         <div className="mt-10">
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center text-sm font-medium text-white bg-[#3B5998] hover:bg-[#334a80] px-5 py-3 rounded-xl shadow-md"
+          <a
+            href={brand.cta.primary.href}
+            className={`inline-flex items-center justify-center text-sm font-medium text-white ${brand.accent} ${brand.accentHover} px-5 py-3 rounded-xl shadow-md`}
           >
-            Get Started
-          </Link>
+            {brand.cta.primary.label}
+          </a>
         </div>
 
         <div className="mt-10 text-xs text-gray-500">
