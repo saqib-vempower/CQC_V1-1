@@ -1,6 +1,5 @@
 import { doc, getDoc, collection, getDocs, setDoc } from 'firebase/firestore';
-import { getFirestore } from 'firebase/firestore';
-import { adminDb } from './firebase';
+import { db } from './firebase-client';
 
 // Define types
 export interface UserProfile {
@@ -49,8 +48,7 @@ export interface Call {
   };
 }
 
-// Client-side Firestore functions
-const db = getFirestore();
+// Client-side Firestore functions (safe to import anywhere)
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const docRef = doc(db, 'users', uid);
@@ -68,16 +66,4 @@ export async function getCall(callId: string): Promise<Call | null> {
         return docSnap.data() as Call;
     }
     return null;
-}
-
-// Server-side Firestore functions (using admin SDK)
-export async function listAllCalls(): Promise<Call[]> {
-    const callsCollection = collection(adminDb, 'calls');
-    const snapshot = await getDocs(callsCollection);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Call));
-}
-
-export async function saveCall(callData: Call): Promise<void> {
-    const callRef = doc(adminDb, 'calls', callData.id);
-    await setDoc(callRef, callData);
 }

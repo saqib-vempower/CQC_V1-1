@@ -30,7 +30,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { getAuth, signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase-client';
 
 const NavItem = ({ href, icon: Icon, label, isCollapsed }) => (
   <Link
@@ -44,8 +45,7 @@ const NavItem = ({ href, icon: Icon, label, isCollapsed }) => (
 
 const Header = ({ onMenuClick }) => {
   const { user, profile } = useAuth();
-  const auth = getAuth();
-
+  
   const handleSignOut = async () => {
     await signOut(auth);
   };

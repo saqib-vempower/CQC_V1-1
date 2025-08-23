@@ -3,8 +3,11 @@
 
 import { analyzeCallFlow, AnalyzeCallInput } from './flows/analyze-call-flow';
 import { v4 as uuidv4 } from 'uuid';
-import { adminStorage } from '@/lib/firebase';
-import { saveCall } from '@/lib/firestore';
+import { adminStorage } from '@/lib/firebase-server';
+import { adminDb } from '@/lib/firebase-server';
+import { Call } from '@/lib/firestore';
+import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
+
 
 interface UploadAndAnalyzeInput extends Omit<AnalyzeCallInput, 'audioGcsUri'> {
     audioFile: File;
@@ -34,7 +37,7 @@ export async function analyzeAndStoreCall(input: UploadAndAnalyzeInput): Promise
     const analysisResult = await analyzeCallFlow({ ...metadata, audioGcsUri });
 
     // 3. Store the complete record in Firestore
-    const callRecord = {
+    const callRecord: Call = {
         id: callId,
         agentId: metadata.agentId,
         timestamp: new Date().toISOString(),
@@ -49,4 +52,16 @@ export async function analyzeAndStoreCall(input: UploadAndAnalyzeInput): Promise
     await saveCall(callRecord);
 
     return callId;
+}
+
+// Server-side Firestore functions (using admin SDK)
+export async function listAllCalls(): Promise<Call[]> {
+    const callsCollection = collection(adminDb, 'calls');
+    const snapshot = await getDocs(callsCollection);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Call));
+}
+
+export async function saveCall(callData: Call): Promise<void> {
+    const callRef = doc(adminDb, 'calls', callData.id);
+    await setDoc(callRef, callData as any);
 }

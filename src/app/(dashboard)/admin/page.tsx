@@ -1,6 +1,6 @@
 import React from 'react';
 import AdminDashboard from '@/components/cqc/admin-dashboard';
-import { listAllCalls } from '@/lib/firestore';
+import { listAllCalls } from '@/ai/actions';
 
 export default async function AdminPage() {
   const calls = await listAllCalls();

@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import Image from 'next/image';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase-client';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -36,7 +37,6 @@ export default function LoginPage() {
       return;
     }
 
-    const auth = getAuth();
     try {
       await signInWithEmailAndPassword(auth, email, password);
       setError('');

@@ -3,10 +3,8 @@
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { getUserProfile, UserProfile } from '@/lib/firestore';
-import { initFirebase } from '@/lib/firebase';
+import { auth } from '@/lib/firebase-client';
 import Splash from './splash';
-
-initFirebase();
 
 interface AuthContextType {
   user: User | null;
@@ -22,7 +20,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setLoading(true);
       if (user) {
