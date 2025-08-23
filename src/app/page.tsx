@@ -71,9 +71,6 @@ const NavBar = () => (
         <a href="#scorecard" className="hover:text-gray-900">
           Scorecard
         </a>
-        <a href="#security" className="hover:text-gray-900">
-          Security
-        </a>
         <a href="#faq" className="hover:text-gray-900">
           FAQ
         </a>
