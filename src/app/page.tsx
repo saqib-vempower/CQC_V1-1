@@ -270,40 +270,8 @@ const Scorecard = () => (
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
           <h3 className="font-semibold text-gray-900">
-            Evidence‑first scoring
+            Evidence-first scoring
           </h3>
-          <ul className="mt-3 space-y-2 text-sm text-gray-600">
-            <li className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-sky-400" /> Each
-              deduction (
-              <span className="font-medium text-gray-800">&lt;5</span>)
-              includes a timestamped snippet.
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />{' '}
-              Fairness: ignore student‑side noise; cap polite clarifications.
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-400" /> Coach notes
-              summarize what to improve next time.
-            </li>
-          </ul>
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-xl border border-gray-200 p-3">
-              <div className="text-xs text-gray-500">C4 • Holds</div>
-              <div className="font-semibold text-gray-900">4/5</div>
-              <div className="text-xs text-gray-500">
-                Evidence @ 06:12 “One moment…”
-              </div>
-            </div>
-            <div className="rounded-xl border border-gray-200 p-3">
-              <div className="text-xs text-gray-500">C2 • Empathy</div>
-              <div className="font-semibold text-gray-900">3/5</div>
-              <div className="text-xs text-gray-500">
-                Missed reflection @ 03:48
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
