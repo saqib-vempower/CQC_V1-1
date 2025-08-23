@@ -78,9 +78,6 @@ const NavBar = () => (
         <a href="#security" className="hover:text-gray-900">
           Security
         </a>
-        <a href="#pricing" className="hover:text-gray-900">
-          Pricing
-        </a>
         <a href="#faq" className="hover:text-gray-900">
           FAQ
         </a>
@@ -554,83 +551,6 @@ const Security = () => (
   </section>
 );
 
-const Pricing = () => (
-  <section id="pricing" className="py-16 md:py-24 bg-white">
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <SectionTitle
-        eyebrow="Pricing"
-        title="Start free. Grow with your team."
-        subtitle="Simple, transparent options—tweak or remove this section for internal deployments."
-      />
-      <div className="mt-10 grid md:grid-cols-3 gap-6">
-        {[
-          {
-            name: 'Starter',
-            price: 'Free',
-            features: [
-              'Landing + Login',
-              'Upload & status chips',
-              'Basic metrics + scoring',
-            ],
-          },
-          {
-            name: 'Pro',
-            price: '$19/mo',
-            features: [
-              'All Starter',
-              'Sheets export',
-              'Advanced filters & dashboards',
-            ],
-          },
-          {
-            name: 'Team',
-            price: '$49/mo',
-            features: ['All Pro', 'Team seats', 'SLA & support'],
-          },
-        ].map((p, i) => (
-          <div
-            key={p.name}
-            className={`rounded-2xl border ${
-              i === 1 ? 'border-indigo-200 shadow-md' : 'border-gray-200'
-            } bg-white p-6 flex flex-col`}
-          >
-            <div className="flex items-baseline justify-between">
-              <h3 className="font-semibold text-gray-900">{p.name}</h3>
-              <span
-                className={`text-xs px-2 py-1 rounded-full ${
-                  i === 1
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'bg-gray-50 text-gray-700'
-                }`}
-              >
-                {i === 1 ? 'Popular' : ''}
-              </span>
-            </div>
-            <div className="mt-3 text-3xl font-bold">{p.price}</div>
-            <ul className="mt-4 space-y-2 text-sm text-gray-600">
-              {p.features.map((f) => (
-                <li key={f} className="flex items-center gap-2">
-                  <Icon path={icons.check} className="w-4 h-4" /> {f}
-                </li>
-              ))}
-            </ul>
-            <a
-              href="#get-started"
-              className={`mt-6 inline-flex items-center justify-center rounded-xl border ${
-                i === 1
-                  ? 'text-white ' + brand.accent + ' ' + brand.accentHover
-                  : 'border-gray-200 text-gray-800 hover:bg-gray-50'
-              } px-4 py-2`}
-            >
-              Choose {p.name}
-            </a>
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
-);
-
 const FAQ = () => (
   <section
     id="faq"
@@ -723,7 +643,6 @@ export default function LandingPage() {
         <Flow />
         <Scorecard />
         <Security />
-        <Pricing />
         <FAQ />
       </main>
       <Footer />
