@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -123,7 +124,7 @@ const Hero = () => (
         <div className="mt-10">
           <a
             href="/login"
-            className={`inline-flex items-center justify-center text-sm font-medium text-white ${brand.accent} ${brand.accentHover} px-5 py-3 rounded-xl shadow-md`}
+            className="inline-flex items-center justify-center text-sm font-medium text-white bg-[#3B5998] hover:bg-[#334a80] px-5 py-3 rounded-xl shadow-md"
           >
             Get Started
           </a>
