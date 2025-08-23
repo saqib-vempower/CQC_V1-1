@@ -5,21 +5,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
-// ──────────────────────────────────────────────────────────────
-// Brand knobs — tweak here
-// ──────────────────────────────────────────────────────────────
-const brand = {
-  name: 'Call Quality Compass',
-  tagline: 'Call Quality Compass',
-  primaryGrad: 'bg-gradient-to-br from-[#3B5998] via-[#4B6FB3] to-[#7FB3FF]', // navy → light blue
-  accent: 'bg-[#3B5998]',
-  accentHover: 'hover:bg-[#334a80]',
-  logo: '🧭',
-  cta: {
-    primary: { label: 'Get Started', href: '/login' },
-  },
-};
-
 // tiny inline icon helper (no extra deps)
 const Icon = ({ path, className = 'w-6 h-6' }: { path: string; className?: string }) => (
   <svg
@@ -55,7 +40,7 @@ const fadeIn = (delay = 0) => ({
   show: { opacity: 1, y: 0, transition: { duration: 0.55, delay } },
 });
 
-const NavBar = () => (
+const NavBar = ({ brand }) => (
   <div className="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/90 border-b border-gray-100">
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <a
@@ -88,7 +73,7 @@ const NavBar = () => (
   </div>
 );
 
-const Hero = () => (
+const Hero = ({ brand }) => (
   <section id="home" className="relative overflow-hidden">
     <div
       className={`absolute inset-0 ${brand.primaryGrad} opacity-10`}
@@ -150,7 +135,7 @@ const SectionTitle = ({
   </div>
 );
 
-const Flow = () => (
+const Flow = ({ brand }) => (
   <section
     id="flow"
     className="py-16 md:py-24 bg-gradient-to-b from-white to-slate-50"
@@ -205,7 +190,7 @@ const Flow = () => (
   </section>
 );
 
-const Scorecard = () => (
+const Scorecard = ({ brand }) => (
   <section id="scorecard" className="py-16 md:py-24 bg-white">
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <SectionTitle
@@ -330,13 +315,25 @@ const FAQ = () => (
 );
 
 export default function LandingPage() {
+  const brand = {
+    name: 'Call Quality Compass',
+    tagline: 'Call Quality Compass',
+    primaryGrad: 'bg-gradient-to-br from-[#3B5998] via-[#4B6FB3] to-[#7FB3FF]', // navy → light blue
+    accent: 'bg-[#3B5998]',
+    accentHover: 'hover:bg-[#334a80]',
+    logo: '🧭',
+    cta: {
+      primary: { label: 'Get Started', href: '/login' },
+    },
+  };
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      <NavBar />
+      <NavBar brand={brand} />
       <main>
-        <Hero />
-        <Flow />
-        <Scorecard />
+        <Hero brand={brand} />
+        <Flow brand={brand} />
+        <Scorecard brand={brand} />
         <FAQ />
       </main>
     </div>
