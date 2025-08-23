@@ -141,13 +141,13 @@ const SectionTitle = ({
 }: {
   eyebrow?: string;
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
 }) => (
   <div className="text-center max-w-2xl mx-auto">
     {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
     <h2 className="text-3xl md:text-4xl font-bold text-gray-900">{title}</h2>
     {subtitle && (
-      <p className="mt-3 text-gray-600 leading-relaxed">{subtitle}</p>
+      <div className="mt-3 text-gray-600 leading-relaxed">{subtitle}</div>
     )}
   </div>
 );
@@ -213,7 +213,12 @@ const Scorecard = () => (
       <SectionTitle
         eyebrow="Scorecard v1.0"
         title="Ten Key Behavioral Criteria"
-        subtitle="Weights sum to 100. Scores are 0–5 with evidence for any deduction."
+        subtitle={
+          <>
+            Scoring Guide: Criteria are weighted to a total of 100. <br />
+            Any point deductions must be supported by evidence.
+          </>
+        }
       />
       <div className="mt-10 grid md:grid-cols-2 gap-6">
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
