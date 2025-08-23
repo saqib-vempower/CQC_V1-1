@@ -1,6 +1,3 @@
-
-'use client';
-
 import React from 'react';
 import { motion } from 'framer-motion';
 
@@ -9,7 +6,7 @@ import { motion } from 'framer-motion';
 // ──────────────────────────────────────────────────────────────
 const brand = {
   name: 'Call Quality Compass',
-  tagline: 'AI‑powered call auditing for university admissions',
+  tagline: 'Call Quality Compass',
   primaryGrad: 'bg-gradient-to-br from-[#3B5998] via-[#4B6FB3] to-[#7FB3FF]', // navy → light blue
   accent: 'bg-[#3B5998]',
   accentHover: 'hover:bg-[#334a80]',
