@@ -77,12 +77,12 @@ const NavBar = () => (
         </a>
       </nav>
       <div className="flex items-center gap-3">
-        <a
+        <Link
           href={brand.cta.primary.href}
           className={`text-sm text-white ${brand.accent} ${brand.accentHover} px-4 py-2 rounded-xl shadow-sm`}
         >
           {brand.cta.primary.label}
-        </a>
+        </Link>
       </div>
     </div>
   </div>
@@ -110,12 +110,12 @@ const Hero = () => (
         </p>
 
         <div className="mt-10">
-          <a
+          <Link
             href={brand.cta.primary.href}
             className={`inline-flex items-center justify-center text-sm font-medium text-white ${brand.accent} ${brand.accentHover} px-5 py-3 rounded-xl shadow-md`}
           >
             {brand.cta.primary.label}
-          </a>
+          </Link>
         </div>
 
         <div className="mt-10 text-xs text-gray-500">
