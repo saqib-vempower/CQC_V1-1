@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import {
@@ -21,28 +22,37 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import Image from 'next/image';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const router = useRouter();
 
   const handleLogin = async () => {
-    // Mock login logic - in a real app, this would call Firebase
     if (email === '' || password === '') {
       setError('Please fill in all fields.');
-    } else if (password !== 'admin') { // Mocking a failed password
-        setError('Incorrect Password. Contact Admin for credentials.');
-    } else {
-        setError('');
-        // successful login would redirect, e.g., router.push('/')
-        console.log('Login successful');
+      return;
+    }
+
+    const auth = getAuth();
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      setError('');
+      router.push('/home');
+    } catch (err: any) {
+        if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+            setError('Incorrect Password. Contact Admin for credentials.');
+        } else {
+            setError('An unexpected error occurred. Please try again.');
+        }
     }
   };
 
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
-       <AlertDialog open={!!error} onOpenChange={() => setError('')}>
+      <AlertDialog open={!!error} onOpenChange={() => setError('')}>
         <AlertDialogContent className="max-w-sm">
           <AlertDialogHeader>
             <AlertDialogTitle>Login Failed</AlertDialogTitle>
@@ -78,19 +88,20 @@ export default function LoginPage() {
               <div className="flex items-center">
                 <Label htmlFor="password">Password</Label>
               </div>
-              <Input 
-                id="password" 
-                type="password" 
-                required 
+              <Input
+                id="password"
+                type="password"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
               />
             </div>
             <Button onClick={handleLogin} type="submit" className="w-full">
               Login
             </Button>
             <Button variant="outline" className="w-full" asChild>
-                <Link href="/">Back to Home</Link>
+              <Link href="/">Back to Home</Link>
             </Button>
           </div>
         </div>

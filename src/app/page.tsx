@@ -43,23 +43,23 @@ const fadeIn = (delay = 0) => ({
 const NavBar = ({ brand }) => (
   <div className="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/90 border-b border-gray-100">
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <a
+      <Link
         href="#home"
         className="flex items-center gap-2 font-semibold text-gray-900"
       >
         <span className="text-xl">{brand.logo}</span>
         <span>{brand.name}</span>
-      </a>
+      </Link>
       <nav className="hidden md:flex items-center gap-6 text-sm text-gray-600">
-        <a href="#flow" className="hover:text-gray-900">
+        <Link href="#flow" className="hover:text-gray-900">
           How it works
-        </a>
-        <a href="#scorecard" className="hover:text-gray-900">
+        </Link>
+        <Link href="#scorecard" className="hover:text-gray-900">
           Scorecard
-        </a>
-        <a href="#faq" className="hover:text-gray-900">
+        </Link>
+        <Link href="#faq" className="hover:text-gray-900">
           FAQ
-        </a>
+        </Link>
       </nav>
       <div className="flex items-center gap-3">
         <Link
@@ -260,6 +260,9 @@ const Scorecard = ({ brand }) => (
           <h3 className="font-semibold text-gray-900">
             Evidence-first scoring
           </h3>
+          <p className="mt-3 text-sm text-gray-600">
+            Each score is backed by a snippet from the transcript, pinpointing the exact moment the criteria was met or missed. This removes subjectivity and provides concrete examples for coaching.
+          </p>
         </div>
       </div>
     </div>
