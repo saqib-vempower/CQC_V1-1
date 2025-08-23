@@ -67,9 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user && !isAuthPage && !isPublicPage) {
       router.push('/login');
     } 
-    // If user is logged in and on the login page, redirect to landing page
+    // If user is logged in and on the login page, redirect to admin dashboard
     else if (user && isAuthPage) {
-        router.push('/');
+        router.push('/admin');
     }
   }, [user, userProfile, loading, pathname, router]);
 
