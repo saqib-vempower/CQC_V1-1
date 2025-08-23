@@ -38,9 +38,12 @@ export default function LoginPage() {
     }
 
     try {
+      // Note: This only handles auth. A real app would need user profile/role handling
+      // which was removed as part of the cleanup.
       await signInWithEmailAndPassword(auth, email, password);
       setError('');
-      router.push('/home');
+      alert('Login successful! A real app would redirect to a dashboard here.');
+      // router.push('/home'); // This route no longer exists
     } catch (err: any) {
         if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
             setError('Incorrect Password. Contact Admin for credentials.');
