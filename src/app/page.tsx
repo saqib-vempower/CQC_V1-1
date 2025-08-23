@@ -84,12 +84,6 @@ const NavBar = () => (
       </nav>
       <div className="flex items-center gap-3">
         <a
-          href={brand.cta.login.href}
-          className="text-sm text-gray-700 hover:text-gray-900"
-        >
-          {brand.cta.login.label}
-        </a>
-        <a
           href={brand.cta.primary.href}
           className={`text-sm text-white ${brand.accent} ${brand.accentHover} px-4 py-2 rounded-xl shadow-sm`}
         >
