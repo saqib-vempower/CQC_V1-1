@@ -1,69 +1,110 @@
 
 'use client';
 
-import React from 'react';
-import { motion } from 'framer-motion';
+import { useState } from 'react';
 import Link from 'next/link';
-
-const brand = {
-  name: 'Call Quality Compass',
-  logo: '🧭',
-  accent: 'bg-[#3B5998]',
-  accentHover: 'hover:bg-[#334a80]',
-  cta: {
-    primary: { label: 'Login', href: '/' },
-    secondary: { label: 'Home', href: '/' },
-  },
-};
-
-const fadeIn = (delay = 0) => ({
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.55, delay } },
-});
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import Image from 'next/image';
 
 export default function LoginPage() {
-  return (
-    <div className="min-h-screen flex flex-col justify-center items-center">
-      <div className="text-center">
-        <div className="text-6xl mb-4 inline-block">{brand.logo}</div>
-        <h1 className="mt-5 text-4xl md:text-6xl font-ext-bold tracking-tight text-gray-900">
-          {brand.name}
-        </h1>
-        <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
-          Please login to continue.
-        </p>
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-        <motion.div
-          initial="hidden"
-          animate="show"
-          variants={fadeIn()}
-          className="mt-10"
-        >
-          <div className="max-w-md mx-auto bg-white p-8 rounded-xl shadow-md">
-            <input
-              type="email"
-              placeholder="Email"
-              className="w-full px-4 py-2 mb-4 border border-gray-300 rounded-lg"
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              className="w-full px-4 py-2 mb-4 border border-gray-300 rounded-lg"
-            />
-            <Link
-              href={brand.cta.primary.href}
-              className={`w-full inline-flex items-center justify-center text-sm font-medium text-white ${brand.accent} ${brand.accentHover} px-5 py-3 rounded-xl shadow-md`}
-            >
-              {brand.cta.primary.label}
-            </Link>
-            <Link
-              href={brand.cta.secondary.href}
-              className="mt-4 w-full inline-flex items-center justify-center text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 px-5 py-3 rounded-xl shadow-md"
-            >
-              {brand.cta.secondary.label}
-            </Link>
+  const handleLogin = async () => {
+    // Mock login logic - in a real app, this would call Firebase
+    if (email === '' || password === '') {
+      setError('Please fill in all fields.');
+    } else if (password !== 'admin') { // Mocking a failed password
+        setError('Incorrect Password. Contact Admin for credentials.');
+    } else {
+        setError('');
+        // successful login would redirect, e.g., router.push('/')
+        console.log('Login successful');
+    }
+  };
+
+  return (
+    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
+       <AlertDialog open={!!error} onOpenChange={() => setError('')}>
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Login Failed</AlertDialogTitle>
+          </AlertDialogHeader>
+          <p>{error}</p>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setError('')}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="flex items-center justify-center py-12">
+        <div className="mx-auto grid w-[350px] gap-6">
+          <div className="grid gap-2 text-center">
+            <h1 className="text-3xl font-bold">Login</h1>
+            <p className="text-balance text-muted-foreground">
+              Enter your email below to login to your account
+            </p>
           </div>
-        </motion.div>
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="m@example.com"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <div className="flex items-center">
+                <Label htmlFor="password">Password</Label>
+              </div>
+              <Input 
+                id="password" 
+                type="password" 
+                required 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleLogin} type="submit" className="w-full">
+              Login
+            </Button>
+            <Button variant="outline" className="w-full" asChild>
+                <Link href="/">Back to Home</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+      <div className="hidden bg-muted lg:block">
+        <Image
+          src="https://placehold.co/1920x1080.png"
+          alt="Image"
+          data-ai-hint="abstract geometric"
+          width="1920"
+          height="1080"
+          className="h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+        />
       </div>
     </div>
   );
