@@ -27,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
+const PUBLIC_PAGES = ['/'];
 const AUTH_PAGES = ['/login'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -59,15 +60,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (loading) return;
 
     const isAuthPage = AUTH_PAGES.includes(pathname);
-    
-    if (!user && !isAuthPage) {
+    const isPublicPage = PUBLIC_PAGES.includes(pathname);
+
+    if (!user && !isAuthPage && !isPublicPage) {
       router.push('/login');
-    } else if (user && isAuthPage) {
+    } else if (user && (isAuthPage || isPublicPage)) {
         router.push('/home');
     }
   }, [user, userProfile, loading, pathname, router]);
 
-  if (loading || (!user && !AUTH_PAGES.includes(pathname))) {
+  if (loading || (!user && !AUTH_PAGES.includes(pathname) && !PUBLIC_PAGES.includes(pathname))) {
     return <Splash />;
   }
 
