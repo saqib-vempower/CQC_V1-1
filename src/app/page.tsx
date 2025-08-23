@@ -130,7 +130,7 @@ const Hero = () => (
         </div>
         
         <div className="mt-10 text-xs text-gray-500">
-          Built on Firebase • Gemini • optional AssemblyAI
+          Built on Firebase • Gemini • AssemblyAI
         </div>
       </motion.div>
     </div>
@@ -502,7 +502,7 @@ const Footer = () => (
         <span className="font-medium">{brand.name}</span>
         <span className="text-gray-400">•</span>
         <span className="text-gray-500 text-sm">
-          Built on Firebase • Gemini
+          Built on Firebase • Gemini • AssemblyAI
         </span>
       </div>
       <div className="text-sm text-gray-600 flex items-center gap-4">
