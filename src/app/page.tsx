@@ -267,9 +267,6 @@ const Scorecard = () => (
               <span className="text-gray-800 font-medium">10</span>
             </li>
           </ul>
-          <p className="mt-4 text-xs text-gray-500">
-            If any criterion is N/A, totals rescale to 100.
-          </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-6">
           <h3 className="font-semibold text-gray-900">
