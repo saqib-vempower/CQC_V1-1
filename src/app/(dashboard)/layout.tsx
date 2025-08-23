@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
+import { useRouter } from 'next/navigation';
 
 const NavItem = ({ href, icon: Icon, label, isCollapsed }) => (
   <Link
@@ -44,10 +45,12 @@ const NavItem = ({ href, icon: Icon, label, isCollapsed }) => (
 );
 
 const Header = ({ onMenuClick }) => {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
+  const router = useRouter();
   
   const handleSignOut = async () => {
     await signOut(auth);
+    router.push('/login');
   };
 
   return (
