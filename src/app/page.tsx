@@ -4,6 +4,25 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+
+// SVG Icon for the compass
+const CompassIcon = ({ className = 'w-6 h-6' }: { className?: string }) => (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+    </svg>
+);
+
 
 // tiny inline icon helper (no extra deps)
 const Icon = ({ path, className = 'w-6 h-6' }: { path: string; className?: string }) => (
@@ -41,75 +60,51 @@ const fadeIn = (delay = 0) => ({
 });
 
 const NavBar = ({ brand }) => (
-  <div className="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/90 border-b border-gray-100">
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <Link
-        href="#home"
-        className="flex items-center gap-2 font-semibold text-gray-900"
-      >
-        <span className="text-xl">{brand.logo}</span>
-        <span>{brand.name}</span>
+  <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="container flex h-14 max-w-screen-2xl items-center">
+      <Link href="/" className="mr-6 flex items-center space-x-2">
+        <CompassIcon className="h-6 w-6" />
+        <span className="font-bold sm:inline-block">
+          {brand.name}
+        </span>
       </Link>
-      <nav className="hidden md:flex items-center gap-6 text-sm text-gray-600">
-        <Link href="#flow" className="hover:text-gray-900">
+      <nav className="flex flex-1 items-center justify-center space-x-6 text-sm font-medium">
+        <Link href="#flow" className="text-foreground/60 transition-colors hover:text-foreground/80">
           How it works
         </Link>
-        <Link href="#scorecard" className="hover:text-gray-900">
+        <Link href="#scorecard" className="text-foreground/60 transition-colors hover:text-foreground/80">
           Scorecard
         </Link>
-        <Link href="#faq" className="hover:text-gray-900">
+        <Link href="#faq" className="text-foreground/60 transition-colors hover:text-foreground/80">
           FAQ
         </Link>
       </nav>
-      <div className="flex items-center gap-3">
-        <Link
-          href={brand.cta.primary.href}
-          className={`text-sm text-white ${brand.accent} ${brand.accentHover} px-4 py-2 rounded-xl shadow-sm`}
-        >
-          {brand.cta.primary.label}
-        </Link>
+      <div className="flex items-center justify-end">
+        <Button asChild>
+          <Link href={brand.cta.primary.href}>{brand.cta.primary.label}</Link>
+        </Button>
       </div>
     </div>
-  </div>
+  </header>
 );
 
 const Hero = ({ brand }) => (
-  <section id="home" className="relative overflow-hidden">
-    <div
-      className={`absolute inset-0 ${brand.primaryGrad} opacity-10`}
-      aria-hidden="true"
-    />
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 md:py-28">
-      <motion.div
-        initial="hidden"
-        animate="show"
-        variants={fadeIn()}
-        className="text-center"
-      >
-        <div className="text-6xl mb-4 inline-block">{brand.logo}</div>
-        <h1 className="mt-5 text-4xl md:text-6xl font-extrabold tracking-tight text-gray-900">
-          {brand.name}
-        </h1>
-        <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
-          AI-powered call auditing tool to empower agents.
-        </p>
-
-        <div className="mt-10">
-          <Link
-            href={brand.cta.primary.href}
-            className={`inline-flex items-center justify-center text-sm font-medium text-white ${brand.accent} ${brand.accentHover} px-5 py-3 rounded-xl shadow-md`}
-          >
-            {brand.cta.primary.label}
-          </Link>
-        </div>
-
-        <div className="mt-10 text-xs text-gray-500">
-          Built on Firebase • Gemini • AssemblyAI
-        </div>
-      </motion.div>
-    </div>
-  </section>
+    <section id="home" className="container flex flex-col items-center justify-center py-20 md:py-32 text-center">
+        <motion.div initial="hidden" animate="show" variants={fadeIn()} className="flex flex-col items-center gap-6">
+            <CompassIcon className="w-16 h-16 text-primary" />
+            <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl">
+                {brand.name}
+            </h1>
+            <p className="max-w-[700px] text-lg text-muted-foreground">
+                AI-powered call auditing tool to empower agents.
+            </p>
+            <Button asChild size="lg">
+                <Link href={brand.cta.primary.href}>{brand.cta.primary.label}</Link>
+            </Button>
+        </motion.div>
+    </section>
 );
+
 
 const Eyebrow = ({ children }: { children: React.ReactNode }) => (
   <div className="inline-block text-xs uppercase tracking-wider font-semibold text-indigo-700/90 bg-indigo-50 px-3 py-1 rounded-full mb-3">
@@ -322,8 +317,8 @@ export default function LandingPage() {
     name: 'Call Quality Compass',
     tagline: 'Call Quality Compass',
     primaryGrad: 'bg-gradient-to-br from-[#3B5998] via-[#4B6FB3] to-[#7FB3FF]', // navy → light blue
-    accent: 'bg-[#3B5998]',
-    accentHover: 'hover:bg-[#334a80]',
+    accent: 'bg-primary',
+    accentHover: 'hover:bg-primary/90',
     logo: '🧭',
     cta: {
       primary: { label: 'Get Started', href: '/login' },
@@ -331,7 +326,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-background text-foreground">
       <NavBar brand={brand} />
       <main>
         <Hero brand={brand} />
