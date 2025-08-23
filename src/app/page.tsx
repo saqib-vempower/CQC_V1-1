@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -115,12 +114,21 @@ const Hero = () => (
       >
         <div className="text-6xl mb-4 inline-block">{brand.logo}</div>
         <h1 className="mt-5 text-4xl md:text-6xl font-extrabold tracking-tight text-gray-900">
-          {brand.tagline}
+          {brand.name}
         </h1>
         <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
           AI-powered call auditing tool to empower agents.
         </p>
-        
+
+        <div className="mt-10">
+          <a
+            href="/login"
+            className={`inline-flex items-center justify-center text-sm font-medium text-white ${brand.accent} ${brand.accentHover} px-5 py-3 rounded-xl shadow-md`}
+          >
+            Get Started
+          </a>
+        </div>
+
         <div className="mt-10 text-xs text-gray-500">
           Built on Firebase • Gemini • AssemblyAI
         </div>
