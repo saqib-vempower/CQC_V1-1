@@ -328,26 +328,6 @@ const FAQ = () => (
   </section>
 );
 
-const Footer = () => (
-  <footer className="border-t border-gray-100 bg-white">
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 flex flex-col md:flex-row items-center md:justify-between gap-4">
-      <div className="flex items-center gap-2 text-gray-700">
-        <span className="text-lg">{brand.logo}</span>
-        <span className="font-medium">{brand.name}</span>
-        <span className="text-gray-400">•</span>
-        <span className="text-gray-500 text-sm">
-          Built on Firebase • Gemini • AssemblyAI
-        </span>
-      </div>
-      <div className="text-sm text-gray-600 flex items-center gap-4">
-        <a href="#" className="hover:text-gray-900">
-          Contact
-        </a>
-      </div>
-    </div>
-  </footer>
-);
-
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
@@ -358,7 +338,6 @@ export default function LandingPage() {
         <Scorecard />
         <FAQ />
       </main>
-      <Footer />
     </div>
   );
 }
