@@ -283,50 +283,6 @@ const Scorecard = () => (
   </section>
 );
 
-const Security = () => (
-  <section
-    id="security"
-    className="py-16 md:py-24 bg-gradient-to-t from-white to-slate-50"
-  >
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <SectionTitle
-        eyebrow="Security"
-        title="Privacy‑first by design"
-        subtitle="Built on Firebase with least‑privilege access, App Check, and PII‑aware workflows."
-      />
-      <div className="mt-10 grid md:grid-cols-3 gap-6">
-        <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <div className="flex items-center gap-2 font-semibold text-gray-900">
-            <Icon path={icons.shield} /> Role‑based access
-          </div>
-          <p className="mt-2 text-sm text-gray-600">
-            Admin, QA, and Agent roles enforced in Firestore rules and custom
-            claims.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <div className="flex items-center gap-2 font-semibold text-gray-900">
-            <Icon path={icons.file} /> App Check
-          </div>
-          <p className="mt-2 text-sm text-gray-600">
-            Protects backends using reCAPTCHA Enterprise; helps block abuse and
-            spoofed clients.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <div className="flex items-center gap-2 font-semibold text-gray-900">
-            <Icon path={icons.wave} /> Reliability & speed
-          </div>
-          <p className="mt-2 text-sm text-gray-600">
-            Pipeline tuned for ≤15‑minute calls in ~15 minutes p95; robust
-            retries and logging.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-);
-
 const FAQ = () => (
   <section
     id="faq"
@@ -417,7 +373,6 @@ export default function LandingPage() {
         <Hero />
         <Flow />
         <Scorecard />
-        <Security />
         <FAQ />
       </main>
       <Footer />
