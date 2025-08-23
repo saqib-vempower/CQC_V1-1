@@ -15,7 +15,6 @@ const brand = {
   logo: '🧭',
   cta: {
     primary: { label: 'Get Started', href: '/login' },
-    secondary: { label: 'See Demo', href: '#demo' },
     login: { label: 'Login', href: '/login' },
   },
 };
@@ -133,13 +132,6 @@ const Hero = () => (
           >
             <Icon path={icons.check} className="w-5 h-5" />{' '}
             {brand.cta.primary.label}
-          </a>
-          <a
-            href={brand.cta.secondary.href}
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-gray-200 text-gray-800 bg-white hover:bg-gray-50"
-          >
-            <Icon path={icons.play} className="w-5 h-5" />{' '}
-            {brand.cta.secondary.label}
           </a>
         </div>
         {/* Mock browser frame with three preview tiles */}
