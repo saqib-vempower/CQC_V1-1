@@ -16,7 +16,6 @@ const brand = {
   logo: '🧭',
   cta: {
     primary: { label: 'Get Started', href: '/login' },
-    login: { label: 'Login', href: '/login' },
   },
 };
 
@@ -154,78 +153,6 @@ const SectionTitle = ({
       <p className="mt-3 text-gray-600 leading-relaxed">{subtitle}</p>
     )}
   </div>
-);
-
-const FeatureCard = ({
-  icon,
-  title,
-  desc,
-}: {
-  icon: string;
-  title: string;
-  desc: string;
-}) => (
-  <motion.div
-    variants={fadeIn()}
-    className="group h-full rounded-2xl border border-gray-100 bg-white p-6 shadow-sm hover:shadow-md transition-shadow"
-  >
-    <div className="flex items-center gap-3">
-      <div className="rounded-xl p-2 bg-gray-50 text-gray-800">
-        <Icon path={icon} />
-      </div>
-      <h3 className="font-semibold text-gray-900 text-lg">{title}</h3>
-    </div>
-    <p className="mt-3 text-sm text-gray-600 leading-relaxed">{desc}</p>
-  </motion.div>
-);
-
-const Features = () => (
-  <section id="features" className="py-16 md:py-24 bg-white">
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <SectionTitle
-        eyebrow="Why Compass?"
-        title="Consistent, explainable QA at scale"
-        subtitle="Built for admissions teams: objective metrics, fair scoring, and export‑ready reports."
-      />
-      <motion.div
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, margin: '-100px' }}
-        className="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-6"
-      >
-        <FeatureCard
-          icon={icons.upload}
-          title="Upload & auto‑process"
-          desc="Drag MP3s, validate file naming, and watch status chips progress from Uploaded → Transcribing → Scored."
-        />
-        <FeatureCard
-          icon={icons.mic}
-          title="Diarized transcripts"
-          desc="Speaker‑separated text with timestamps; highlight evidence directly in context."
-        />
-        <FeatureCard
-          icon={icons.table}
-          title="10‑criterion rubric"
-          desc="Weighted 0‑5 scoring with per‑criterion evidence, notes, and N/A rescaling."
-        />
-        <FeatureCard
-          icon={icons.chart}
-          title="Objective metrics"
-          desc="Talk time, gaps, holds, overlaps, polite clarifications, name‑pronunciation, audio hygiene."
-        />
-        <FeatureCard
-          icon={icons.file}
-          title="Sheets export"
-          desc="One‑click Google Sheets summaries and detailed tabs for coaching reviews."
-        />
-        <FeatureCard
-          icon={icons.shield}
-          title="Role‑based & secure"
-          desc="Admin/QA/Agent roles, least‑privilege Firestore rules, App Check with reCAPTCHA Enterprise."
-        />
-      </motion.div>
-    </div>
-  </section>
 );
 
 const Flow = () => (
@@ -521,7 +448,6 @@ export default function LandingPage() {
       <NavBar />
       <main>
         <Hero />
-        <Features />
         <Flow />
         <Scorecard />
         <Security />
