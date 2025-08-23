@@ -112,6 +112,7 @@ const Hero = () => (
         variants={fadeIn()}
         className="text-center"
       >
+        <div className="text-6xl mb-4 inline-block">{brand.logo}</div>
         <h1 className="mt-5 text-4xl md:text-6xl font-extrabold tracking-tight text-gray-900">
           {brand.tagline}
         </h1>
