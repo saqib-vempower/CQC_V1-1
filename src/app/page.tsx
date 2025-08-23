@@ -212,7 +212,7 @@ const Scorecard = () => (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <SectionTitle
         eyebrow="Scorecard v1.0"
-        title="Ten behavioral criteria"
+        title="Ten Key Behavioral Criteria"
         subtitle="Weights sum to 100. Scores are 0–5 with evidence for any deduction."
       />
       <div className="mt-10 grid md:grid-cols-2 gap-6">
