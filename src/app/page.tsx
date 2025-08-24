@@ -2,7 +2,30 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import Link from 'next/link';
+
+// Canvas preview shim (in your Next.js app, keep using next/link)
+// We ensure proper button semantics, focus, and keyboard activation.
+const PrimaryButton = ({
+  href,
+  children,
+  className = '',
+}: {
+  href: string;
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <a
+    href={href}
+    role="button"
+    tabIndex={0}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') (e.currentTarget as HTMLAnchorElement).click();
+    }}
+    className={`inline-flex items-center justify-center text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/40 active:scale-[0.98] px-5 py-3 rounded-xl shadow-md transition cursor-pointer pointer-events-auto ${className}`}
+  >
+    {children}
+  </a>
+);
 
 // tiny inline icon helper (no extra deps)
 const Icon = ({ path, className = 'w-6 h-6' }: { path: string; className?: string }) => (
@@ -39,46 +62,44 @@ const fadeIn = (delay = 0) => ({
   show: { opacity: 1, y: 0, transition: { duration: 0.55, delay } },
 });
 
-const NavBar = ({ brand }) => (
-  <div className="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/90 border-b border-gray-100">
+const NavBar = ({ brand }: any) => (
+  <div className="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-background/70 bg-background/90 border-b">
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <a
         href="#home"
-        className="flex items-center gap-2 font-semibold text-gray-900"
+        className="flex items-center gap-2 font-semibold text-foreground"
       >
         <span className="text-xl">{brand.logo}</span>
         <span>{brand.name}</span>
       </a>
-      <nav className="hidden md:flex items-center gap-6 text-sm text-gray-600">
-        <a href="#flow" className="hover:text-gray-900">
+      <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
+        <a href="#flow" className="hover:text-foreground">
           How it works
         </a>
-        <a href="#scorecard" className="hover:text-gray-900">
+        <a href="#scorecard" className="hover:text-foreground">
           Scorecard
         </a>
-        <a href="#faq" className="hover:text-gray-900">
+        <a href="#faq" className="hover:text-foreground">
           FAQ
         </a>
       </nav>
       <div className="flex items-center gap-3">
-        <Link
-          href={brand.cta.primary.href}
-          className={`text-sm text-white ${brand.accent} ${brand.accentHover} px-4 py-2 rounded-xl shadow-sm`}
-        >
+        <PrimaryButton href={brand.cta.primary.href}>
           {brand.cta.primary.label}
-        </Link>
+        </PrimaryButton>
       </div>
     </div>
   </div>
 );
 
-const Hero = ({ brand }) => (
+const Hero = ({ brand }: any) => (
   <section id="home" className="relative overflow-hidden">
+    {/* Gradient overlay must not block clicks */}
     <div
-      className={`absolute inset-0 ${brand.primaryGrad} opacity-10`}
+      className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary via-primary/70 to-secondary opacity-10"
       aria-hidden="true"
     />
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 md:py-28">
+    <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 md:py-28">
       <motion.div
         initial="hidden"
         animate="show"
@@ -86,23 +107,20 @@ const Hero = ({ brand }) => (
         className="text-center"
       >
         <div className="text-6xl mb-4 inline-block">{brand.logo}</div>
-        <h1 className="mt-5 text-4xl md:text-6xl font-extrabold tracking-tight text-gray-900">
+        <h1 className="mt-5 text-4xl md:text-6xl font-extrabold tracking-tight text-foreground">
           {brand.name}
         </h1>
-        <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
+        <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
           AI-powered call auditing tool to empower agents.
         </p>
 
         <div className="mt-10">
-          <Link
-            href={brand.cta.primary.href}
-            className={`inline-flex items-center justify-center text-sm font-medium text-white ${brand.accent} ${brand.accentHover} px-5 py-3 rounded-xl shadow-md`}
-          >
+          <PrimaryButton href={brand.cta.primary.href}>
             {brand.cta.primary.label}
-          </Link>
+          </PrimaryButton>
         </div>
 
-        <div className="mt-10 text-xs text-gray-500">
+        <div className="mt-10 text-xs text-muted-foreground">
           Built on Firebase • Gemini • AssemblyAI
         </div>
       </motion.div>
@@ -111,7 +129,7 @@ const Hero = ({ brand }) => (
 );
 
 const Eyebrow = ({ children }: { children: React.ReactNode }) => (
-  <div className="inline-block text-xs uppercase tracking-wider font-semibold text-indigo-700/90 bg-indigo-50 px-3 py-1 rounded-full mb-3">
+  <div className="inline-block text-xs uppercase tracking-wider font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full mb-3">
     {children}
   </div>
 );
@@ -127,17 +145,17 @@ const SectionTitle = ({
 }) => (
   <div className="text-center max-w-2xl mx-auto">
     {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
-    <h2 className="text-3xl md:text-4xl font-bold text-gray-900">{title}</h2>
+    <h2 className="text-3xl md:text-4xl font-bold text-foreground">{title}</h2>
     {subtitle && (
-      <div className="mt-3 text-gray-600 leading-relaxed">{subtitle}</div>
+      <div className="mt-3 text-muted-foreground leading-relaxed">{subtitle}</div>
     )}
   </div>
 );
 
-const Flow = ({ brand }) => (
+const Flow = ({ brand }: any) => (
   <section
     id="flow"
-    className="py-16 md:py-24 bg-gradient-to-b from-white to-slate-50"
+    className="py-16 md:py-24 bg-gradient-to-b from-background to-secondary/20"
   >
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <SectionTitle
@@ -147,41 +165,19 @@ const Flow = ({ brand }) => (
       />
       <div className="mt-10 grid md:grid-cols-4 gap-6">
         {[
-          {
-            n: 1,
-            t: 'Upload call',
-            d: 'Add MP3 + metadata (university, domain, type).',
-            icon: icons.upload,
-          },
-          {
-            n: 2,
-            t: 'Transcribe',
-            d: 'Diarized transcript with timestamps.',
-            icon: icons.mic,
-          },
-          {
-            n: 3,
-            t: 'Compute metrics',
-            d: 'Talk time, gaps, holds, overlaps.',
-            icon: icons.chart,
-          },
-          {
-            n: 4,
-            t: 'Score & coach',
-            d: 'Rubric scores with evidence + notes.',
-            icon: icons.table,
-          },
+          { n: 1, t: 'Upload call', d: 'Add MP3 + metadata (university, domain, type).', icon: icons.upload },
+          { n: 2, t: 'Transcribe', d: 'Diarized transcript with timestamps.', icon: icons.mic },
+          { n: 3, t: 'Compute metrics', d: 'Talk time, gaps, holds, overlaps.', icon: icons.chart },
+          { n: 4, t: 'Score & coach', d: 'Rubric scores with evidence + notes.', icon: icons.table },
         ].map(({ n, t, d, icon }) => (
-          <div key={n} className="rounded-2xl border border-gray-200 bg-white p-6">
-            <div
-              className={`w-10 h-10 grid place-items-center rounded-xl text-white ${brand.accent}`}
-            >
+          <div key={n} className="rounded-2xl border bg-card p-6">
+            <div className="w-10 h-10 grid place-items-center rounded-xl text-primary-foreground bg-primary">
               {n}
             </div>
-            <div className="mt-3 flex items-center gap-2 text-gray-900 font-semibold">
+            <div className="mt-3 flex items-center gap-2 text-foreground font-semibold">
               <Icon path={icon} /> {t}
             </div>
-            <p className="mt-2 text-sm text-gray-600 leading-relaxed">{d}</p>
+            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{d}</p>
           </div>
         ))}
       </div>
@@ -189,8 +185,8 @@ const Flow = ({ brand }) => (
   </section>
 );
 
-const Scorecard = ({ brand }) => (
-  <section id="scorecard" className="py-16 md:py-24 bg-white">
+const Scorecard = ({ brand }: any) => (
+  <section id="scorecard" className="py-16 md:py-24 bg-background">
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <SectionTitle
         eyebrow="Scorecard v1.0"
@@ -203,62 +199,24 @@ const Scorecard = ({ brand }) => (
         }
       />
       <div className="mt-10 grid md:grid-cols-2 gap-6">
-        <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <h3 className="font-semibold text-gray-900">Criteria & weights</h3>
-          <ul className="mt-3 space-y-2 text-sm text-gray-600">
-            <li>
-              <span className="font-medium text-gray-800">C1</span> Opening,
-              Purpose & Identity —{' '}
-              <span className="text-gray-800 font-medium">10</span>
-            </li>
-            <li>
-              <span className="font-medium text-gray-800">C2</span> Active
-              Listening & Empathy —{' '}
-              <span className="text-gray-800 font-medium">12</span>
-            </li>
-            <li>
-              <span className="font-medium text-gray-800">C3</span> Clarity &
-              Organization — <span className="text-gray-800 font-medium">10</span>
-            </li>
-            <li>
-              <span className="font-medium text-gray-800">C4</span> Managing
-              Holds, Pauses & Lookups —{' '}
-              <span className="text-gray-800 font-medium">12</span>
-            </li>
-            <li>
-              <span className="font-medium text-gray-800">C5</span> Probing &
-              Clarification — <span className="text-gray-800 font-medium">8</span>
-            </li>
-            <li>
-              <span className="font-medium text-gray-800">C6</span> Information
-              Delivery & Handoff —{' '}
-              <span className="text-gray-800 font-medium">10</span>
-            </li>
-            <li>
-              <span className="font-medium text-gray-800">C7</span> Handling
-              Student Decisions —{' '}
-              <span className="text-gray-800 font-medium">12</span>
-            </li>
-            <li>
-              <span className="font-medium text-gray-800">C8</span> Professional
-              Tone & Language — <span className="text-gray-800 font-medium">8</span>
-            </li>
-            <li>
-              <span className="font-medium text-gray-800">C9</span> Audio
-              Hygiene (Agent‑side) —{' '}
-              <span className="text-gray-800 font-medium">8</span>
-            </li>
-            <li>
-              <span className="font-medium text-gray-800">C10</span> Wrap‑up,
-              Next Steps & Disposition —{' '}
-              <span className="text-gray-800 font-medium">10</span>
-            </li>
+        <div className="rounded-2xl border bg-card p-6">
+          <h3 className="font-semibold text-foreground">Criteria & weights</h3>
+          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+            <li><span className="font-medium text-foreground">C1</span> Opening, Purpose & Identity — <span className="text-foreground font-medium">10</span></li>
+            <li><span className="font-medium text-foreground">C2</span> Active Listening & Empathy — <span className="text-foreground font-medium">12</span></li>
+            <li><span className="font-medium text-foreground">C3</span> Clarity & Organization — <span className="text-foreground font-medium">10</span></li>
+            <li><span className="font-medium text-foreground">C4</span> Managing Holds, Pauses & Lookups — <span className="text-foreground font-medium">12</span></li>
+            <li><span className="font-medium text-foreground">C5</span> Probing & Clarification — <span className="text-foreground font-medium">8</span></li>
+            <li><span className="font-medium text-foreground">C6</span> Information Delivery & Handoff — <span className="text-foreground font-medium">10</span></li>
+            <li><span className="font-medium text-foreground">C7</span> Handling Student Decisions — <span className="text-foreground font-medium">12</span></li>
+            <li><span className="font-medium text-foreground">C8</span> Professional Tone & Language — <span className="text-foreground font-medium">8</span></li>
+            <li><span className="font-medium text-foreground">C9</span> Audio Hygiene (Agent‑side) — <span className="text-foreground font-medium">8</span></li>
+            <li><span className="font-medium text-foreground">C10</span> Wrap‑up, Next Steps & Disposition — <span className="text-foreground font-medium">10</span></li>
           </ul>
         </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <h3 className="font-semibold text-gray-900">
-            Evidence-first scoring
-          </h3>
+        <div className="rounded-2xl border bg-card p-6">
+          <h3 className="font-semibold text-foreground">Evidence-first scoring</h3>
+          <p className="mt-2 text-sm text-muted-foreground">Each deduction references a timestamped snippet with a short coach note.</p>
         </div>
       </div>
     </div>
@@ -266,10 +224,7 @@ const Scorecard = ({ brand }) => (
 );
 
 const FAQ = () => (
-  <section
-    id="faq"
-    className="py-16 md:py-24 bg-gradient-to-b from-white to-slate-50"
-  >
+  <section id="faq" className="py-16 md:py-24 bg-gradient-to-b from-background to-secondary/20">
     <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
       <SectionTitle
         eyebrow="FAQ"
@@ -278,34 +233,19 @@ const FAQ = () => (
       />
       <div className="mt-10 grid md:grid-cols-2 gap-6">
         {[
-          {
-            q: 'Does this work with Next.js?',
-            a: 'Yes. It’s a React component and works with Next, Vite, CRA, etc.',
-          },
-          {
-            q: 'Where do transcripts live?',
-            a: 'In Firestore/Storage collections tied to each call; access is role‑restricted.',
-          },
-          {
-            q: 'How is scoring explained?',
-            a: 'Every deduction includes a timestamped snippet and a short coach note.',
-          },
-          {
-            q: 'Can we export reports?',
-            a: 'Yes—export summaries and details to Google Sheets for sharing and audits.',
-          },
+          { q: 'Does this work with Next.js?', a: 'Yes. It’s a React component and works with Next, Vite, CRA, etc.' },
+          { q: 'Where do transcripts live?', a: 'In Firestore/Storage collections tied to each call; access is role‑restricted.' },
+          { q: 'How is scoring explained?', a: 'Every deduction includes a timestamped snippet and a short coach note.' },
+          { q: 'Can we export reports?', a: 'Yes—export summaries and details to Google Sheets for sharing and audits.' },
         ].map(({ q, a }) => (
-          <details
-            key={q}
-            className="group rounded-2xl border border-gray-200 bg-white p-6"
-          >
-            <summary className="cursor-pointer list-none font-medium text-gray-900 flex items-center justify-between">
+          <details key={q} className="group rounded-2xl border bg-card p-6">
+            <summary className="cursor-pointer list-none font-medium text-foreground flex items-center justify-between">
               {q}
-              <span className="ml-4 text-gray-500 group-open:rotate-45 transition-transform">
+              <span className="ml-4 text-muted-foreground group-open:rotate-45 transition-transform">
                 <Icon path="M12 5v14M5 12h14" className="w-5 h-5" />
               </span>
             </summary>
-            <p className="mt-3 text-sm text-gray-600 leading-relaxed">{a}</p>
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{a}</p>
           </details>
         ))}
       </div>
@@ -317,17 +257,12 @@ export default function LandingPage() {
   const brand = {
     name: 'Call Quality Compass',
     tagline: 'Call Quality Compass',
-    primaryGrad: 'bg-gradient-to-br from-[#3B5998] via-[#4B6FB3] to-[#7FB3FF]', // navy → light blue
-    accent: 'bg-[#3B5998]',
-    accentHover: 'hover:bg-[#334a80]',
     logo: '🧭',
-    cta: {
-      primary: { label: 'Get Started', href: '/login' },
-    },
+    cta: { primary: { label: 'Get Started', href: '/login' } },
   };
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-background text-foreground">
       <NavBar brand={brand} />
       <main>
         <Hero brand={brand} />
