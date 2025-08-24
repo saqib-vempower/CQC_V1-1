@@ -1,0 +1,26 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import withAuthorization from '@/components/withAuthorization';
+
+function AgentPage() {
+  const router = useRouter();
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+      <div className="p-8 bg-white rounded-lg shadow-md max-w-md w-full text-center">
+        <h1 className="text-2xl font-bold mb-4">Agent Portal</h1>
+        <p className="text-gray-600 mb-8">Welcome, Agent. Please select an option below.</p>
+        <div className="space-y-4">
+          <Button onClick={() => router.push('/dashboard')} className="w-full">
+            Go to Dashboard
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Apply the security wrapper to the AgentPage
+export default withAuthorization(AgentPage, ['Agent']);

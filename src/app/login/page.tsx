@@ -22,8 +22,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import Image from 'next/image';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase-client';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from '@/lib/firebase-client';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -38,17 +39,42 @@ export default function LoginPage() {
     }
 
     try {
-      // Note: This only handles auth. A real app would need user profile/role handling
-      // which was removed as part of the cleanup.
-      await signInWithEmailAndPassword(auth, email, password);
-      setError('');
-      alert('Login successful! A real app would redirect to a dashboard here.');
-      // router.push('/home'); // This route no longer exists
-    } catch (err: any) {
-        if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-            setError('Incorrect Password. Contact Admin for credentials.');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          const role = userData.role;
+
+          // Redirect based on the user's role
+          switch (role) {
+            case 'Admin':
+              router.push('/admin');
+              break;
+            case 'QA':
+              router.push('/qa');
+              break;
+            case 'Agent':
+              router.push('/agent');
+              break;
+            default:
+              setError('Your account has an unassigned or invalid role. Please contact an administrator.');
+              break;
+          }
         } else {
-            setError('An unexpected error occurred. Please try again.');
+          setError('Your user profile could not be found. Please contact an administrator to have a role assigned.');
+        }
+      }
+    } catch (err: any) {
+        console.error("Firebase Login Error:", err);
+        if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-email') {
+            setError('Incorrect email or password. Please try again.');
+        } else {
+            setError(`An unexpected error occurred: ${err.code || err.message}.`);
         }
     }
   };
