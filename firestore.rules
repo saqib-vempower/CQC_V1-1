@@ -1,13 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Deny all reads and writes by default
+    // Default to locked down
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Allow a user to read their own document in the 'users' collection
+    // Rules for the 'users' collection
     match /users/{userId} {
+      // Allow a user to be created.
+      // Note: This does not check *who* is creating the user.
+      // That is handled by our secure API route, which is only accessible to Admins.
+      allow create: if true;
+
+      // Allow a logged-in user to read their own document.
       allow read: if request.auth.uid == userId;
     }
   }

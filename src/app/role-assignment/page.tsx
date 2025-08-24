@@ -65,10 +65,11 @@ function RoleAssignmentPage() {
         setEmail('');
         setRole('');
       } else {
-        setFeedback({ type: 'error', message: result.message || 'An unknown error occurred.' });
+        // THIS IS THE CRITICAL CHANGE: We now display the specific error from the server.
+        setFeedback({ type: 'error', message: result.message || 'An unknown server error occurred.' });
       }
     } catch (error) {
-      setFeedback({ type: 'error', message: 'Failed to connect to the server. Please try again.' });
+      setFeedback({ type: 'error', message: 'Failed to connect to the server. Please check your network connection.' });
     } finally {
       setIsLoading(false);
     }

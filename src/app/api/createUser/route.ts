@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server';
-import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { adminAuth, adminDb, initializationError } from '@/lib/firebase-admin';
 
 export async function POST(request: Request) {
+  // --- Health Check ---
+  // If the admin SDK failed to initialize, report the captured error immediately.
+  if (initializationError) {
+    console.error("API call failed due to initialization error:", initializationError);
+    return NextResponse.json({
+      success: false,
+      message: `Server configuration error: ${initializationError.message}`
+    }, { status: 500 });
+  }
+
   try {
     const { email, password, role } = await request.json();
 
@@ -9,8 +19,6 @@ export async function POST(request: Request) {
     const userRecord = await adminAuth.createUser({
       email: email,
       password: password,
-      emailVerified: true, // You can decide if you want to verify emails
-      disabled: false,
     });
 
     // 2. Set the custom role in Firestore
@@ -26,10 +34,21 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error("Error creating user:", error);
+    // This will now catch specific errors from createUser (e.g., "email-already-exists")
+    console.error("--- Create User API route CRASHED ---");
+    console.error("Specific Firebase error:", error);
+    
+    let errorMessage = "An unexpected error occurred.";
+    if (error.code) {
+      // Use Firebase's specific error message if available
+      errorMessage = `Firebase Error: ${error.code.replace('auth/', '')}`;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
     return NextResponse.json({
       success: false,
-      message: error.message || "An unexpected error occurred."
+      message: errorMessage
     }, { status: 500 });
   }
 }

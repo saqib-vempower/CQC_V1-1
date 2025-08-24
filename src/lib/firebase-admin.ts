@@ -1,19 +1,36 @@
 import admin from 'firebase-admin';
 
-// This configures the Firebase Admin SDK using the environment variables
-// we stored in .env.local. This code will only ever run on the server.
-const serviceAccount: admin.ServiceAccount = {
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
-};
+let adminAuth: admin.auth.Auth;
+let adminDb: admin.firestore.Firestore;
+let initializationError: Error | null = null;
 
-// Check if the app is already initialized to prevent errors
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
+try {
+  const base64Credentials = process.env.FIREBASE_ADMIN_SDK_BASE64;
+
+  if (!base64Credentials) {
+    throw new Error('FIREBASE_ADMIN_SDK_BASE64 is not set in .env.local');
+  }
+
+  // Decode the Base64 string back into the JSON credentials
+  const decodedCredentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
+  const serviceAccount = JSON.parse(decodedCredentials);
+
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+  }
+
+  adminAuth = admin.auth();
+  adminDb = admin.firestore();
+
+} catch (error: any) {
+  console.error('!!! FIREBASE ADMIN SDK INITIALIZATION FAILED !!!', error);
+  initializationError = error;
+  // @ts-ignore
+  adminAuth = null;
+  // @ts-ignore
+  adminDb = null;
 }
 
-export const adminAuth = admin.auth();
-export const adminDb = admin.firestore();
+export { adminAuth, adminDb, initializationError };
