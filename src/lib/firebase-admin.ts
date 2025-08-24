@@ -5,10 +5,10 @@ let adminDb: admin.firestore.Firestore;
 let initializationError: Error | null = null;
 
 try {
-  const base64Credentials = process.env.FIREBASE_ADMIN_SDK_BASE64;
+  const base64Credentials = process.env.ADMIN_SDK_BASE64;
 
   if (!base64Credentials) {
-    throw new Error('FIREBASE_ADMIN_SDK_BASE64 is not set in .env.local');
+    throw new Error('ADMIN_SDK_BASE64 is not set in .env.local');
   }
 
   // Decode the Base64 string back into the JSON credentials
