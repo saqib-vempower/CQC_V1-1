@@ -1,37 +1,42 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# Dependencies
 /node_modules
 /.pnp
 .pnp.js
 
-# testing
-/coverage
-
-# next.js
+# Build artifacts
 /.next/
 /out/
-
-# production
 /build
 
-# misc
-.DS_Store
-*.pem
-.modified
+# Static exports
+/export
 
-# debug
+# Local Environment Variables
+# Exclude all .env files from Git to protect sensitive information.
+# A .env.example file can be checked in as a template.
+.env
+.env*.local
+
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 
-# local env files
-.env*.local
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# vercel
-.vercel
+# Operating System Files
+.DS_Store
+Thumbs.db
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Optional files
+.firebase/
+*.cache
+*.log
+/coverage
