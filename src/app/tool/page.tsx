@@ -8,10 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge"; // Import the Badge component
 import withAuthorization from '@/components/withAuthorization';
 import { useAuth } from '@/context/AuthContext';
 import { storage, db } from '@/lib/firebase-client';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const universityOptions = [
@@ -34,6 +35,8 @@ const callTypeOptions = [
   { value: 'Outbound', label: 'Outbound' },
 ];
 
+type Status = 'idle' | 'loading' | 'success' | 'error';
+
 function ToolPage() {
   const router = useRouter();
   const { user, userRole } = useAuth();
@@ -43,9 +46,8 @@ function ToolPage() {
   const [callDate, setCallDate] = useState('');
   const [files, setFiles] = useState<FileList | null>(null);
   
-  const [error, setError] = useState('');
-  const [feedback, setFeedback] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [status, setStatus] = useState<Status>('idle');
+  const [statusMessage, setStatusMessage] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const resetForm = () => {
@@ -54,22 +56,20 @@ function ToolPage() {
     setCallType('');
     setCallDate('');
     setFiles(null);
-    // This is a common way to reset a file input
     const fileInput = document.getElementById('call-files') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = '';
-    }
+    if (fileInput) fileInput.value = '';
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files;
     if (selectedFiles) {
-      setError('');
-      setFeedback('');
+      setStatus('idle');
+      setStatusMessage('');
       const fileNameRegex = /^[a-zA-Z0-9]+_[a-zA-Z0-9]+\.mp3$/;
       for (let i = 0; i < selectedFiles.length; i++) {
         if (!fileNameRegex.test(selectedFiles[i].name)) {
-          setError(`Invalid file name format: ${selectedFiles[i].name}. Expected AgentName_ApplicantID.mp3`);
+          setStatus('error');
+          setStatusMessage(`Invalid file name: ${selectedFiles[i].name}. Expected AgentName_ApplicantID.mp3`);
           setFiles(null);
           return;
         }
@@ -80,21 +80,21 @@ function ToolPage() {
 
   const handleUpload = async () => {
     if (!university || !domain || !callType || !files) {
-      setError('Please fill all required fields and select files.');
+      setStatus('error');
+      setStatusMessage('Please fill all required fields and select files.');
       return;
     }
     if (!user) {
-      setError('You must be logged in to upload files.');
+      setStatus('error');
+      setStatusMessage('You must be logged in to upload files.');
       return;
     }
 
-    setIsLoading(true);
-    setError('');
-    setFeedback('');
+    setStatus('loading');
     setUploadProgress(0);
-
     const filesArray = Array.from(files);
     const totalFiles = filesArray.length;
+    setStatusMessage(`Uploading ${uploadProgress} of ${totalFiles} files...`);
 
     try {
       const uploadPromises = filesArray.map(async (file, index) => {
@@ -103,38 +103,32 @@ function ToolPage() {
         const storagePath = `audits/${uniqueFilename}`;
         const storageRef = ref(storage, storagePath);
 
-        // 1. Upload the file
         await uploadBytes(storageRef, file);
         
-        // 2. Create the Firestore document
         await addDoc(collection(db, 'audits'), {
-          agentName,
-          applicantId,
-          university,
-          domain,
-          callType,
+          agentName, applicantId, university, domain, callType,
           callDate: callDate || null,
           originalFilename: file.name,
-          storagePath,
-          status: 'Uploaded',
+          storagePath, status: 'Uploaded',
           createdAt: serverTimestamp(),
           uploadedBy: user.email,
         });
 
-        // Update progress
-        setUploadProgress(prev => prev + 1);
+        const newProgress = index + 1;
+        setUploadProgress(newProgress);
+        setStatusMessage(`Uploading ${newProgress} of ${totalFiles} files...`);
       });
 
       await Promise.all(uploadPromises);
 
-      setFeedback(`${totalFiles} file(s) uploaded and records created successfully!`);
+      setStatus('success');
+      setStatusMessage(`${totalFiles} file(s) uploaded successfully!`);
       resetForm();
 
     } catch (err) {
       console.error("Upload failed:", err);
-      setError('An error occurred during the upload. Please try again.');
-    } finally {
-      setIsLoading(false);
+      setStatus('error');
+      setStatusMessage('An error occurred during the upload. Please try again.');
     }
   };
 
@@ -147,6 +141,22 @@ function ToolPage() {
     }
     router.push(path);
   };
+  
+  const getStatusChip = () => {
+    if (status === 'idle' || !statusMessage) return null;
+    
+    let variant: "default" | "destructive" | "secondary" = "default";
+    if (status === 'success') variant = 'secondary'; // Green in shadcn UI by default
+    if (status === 'error') variant = 'destructive';
+    
+    return (
+        <div className="mt-4 flex justify-center">
+            <Badge variant={variant} className="text-md px-4 py-2">
+                {statusMessage}
+            </Badge>
+        </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
@@ -155,7 +165,7 @@ function ToolPage() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle>Call Auditing Tool</CardTitle>
-              <Button variant="outline" onClick={handleBack} disabled={isLoading}>Back</Button>
+              <Button variant="outline" onClick={handleBack} disabled={status === 'loading'}>Back</Button>
             </div>
             <CardDescription>
               Upload call recordings (MP3 format) and provide metadata for auditing.
@@ -163,9 +173,10 @@ function ToolPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-6">
-              <fieldset disabled={isLoading}>
+              <fieldset disabled={status === 'loading'}>
                 <div className="grid gap-6">
-                  <div className="grid gap-2">
+                  {/* Form fields remain the same */}
+                   <div className="grid gap-2">
                     <Label htmlFor="university-name">University Name</Label>
                     <Select onValueChange={setUniversity} value={university}>
                       <SelectTrigger><SelectValue placeholder="Select University" /></SelectTrigger>
@@ -198,20 +209,14 @@ function ToolPage() {
                 </div>
               </fieldset>
               
-              {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-              {feedback && <p className="text-green-600 text-sm mt-2">{feedback}</p>}
-              {isLoading && (
-                <div className="mt-2 text-center text-sm text-gray-600">
-                  <p>Uploading... {uploadProgress} of {files?.length || 0} files completed.</p>
-                </div>
-              )}
+              {getStatusChip()}
 
               <div className="mt-4 grid grid-cols-1 gap-2">
-                <Button onClick={handleUpload} className="w-full" disabled={isLoading || !files || !!error}>
-                  {isLoading ? 'Uploading...' : 'Upload and Audit Calls'}
+                <Button onClick={handleUpload} className="w-full" disabled={status === 'loading' || !files || status === 'error'}>
+                  {status === 'loading' ? 'Uploading...' : 'Upload and Audit Calls'}
                 </Button>
                 <Link href="/dashboard" passHref>
-                  <Button variant="secondary" className="w-full" disabled={isLoading}>
+                  <Button variant="secondary" className="w-full" disabled={status === 'loading'}>
                     Dashboard
                   </Button>
                 </Link>

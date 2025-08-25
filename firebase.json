@@ -32,10 +32,5 @@
         "npm --prefix functions run build"
       ]
     }
-  ],
-  "emulators": {
-    "storage": {
-      "import": "./storage_export"
-    }
-  }
+  ]
 }

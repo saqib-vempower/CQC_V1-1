@@ -1,7 +1,0 @@
-[
-  {
-    "origin": ["http://localhost:3000"],
-    "method": ["GET", "PUT", "POST", "DELETE"],
-    "responseHeader": ["Content-Type", "x-goog-resumable"]
-  }
-]

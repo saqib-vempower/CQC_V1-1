@@ -10,7 +10,7 @@ const db = getFirestore();
 
 // --- CONFIGURATION ---
 const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
-const WEBHOOK_SECRET = process.env.ASSEMBLYAI_WEBHOOK_SECRET; // For verifying webhook authenticity
+const WEBHOOK_SECRET = process.env.ASSEMBLYAI_WEBHOOK_SECRET;
 
 /**
  * =================================================================================
@@ -20,18 +20,26 @@ const WEBHOOK_SECRET = process.env.ASSEMBLYAI_WEBHOOK_SECRET; // For verifying w
  */
 export const onAudioUploadedV1 = functions.storage.object().onFinalize(
   async (object) => {
-    if (!ASSEMBLYAI_API_KEY) {
-      functions.logger.error("AssemblyAI API key is not set. Function cannot proceed.");
+    if (!ASSEMBLYAI_API_KEY || !WEBHOOK_SECRET) {
+      functions.logger.error("AssemblyAI API key or Webhook Secret is not set. Function cannot proceed.");
       return;
     }
     
-    // Get the URL of our webhook function
-    const webhookUrl = `https://${functions.config().location.id}-${process.env.GCLOUD_PROJECT}.cloudfunctions.net/assemblyAiWebhook`;
+    // --- PRODUCTION WEBHOOK URL ---
+    // This function will now ONLY work in the live, deployed environment.
+    const region = "asia-south1";
+    const projectId = process.env.GCLOUD_PROJECT;
+    if (!projectId) {
+        functions.logger.error("GCLOUD_PROJECT environment variable not set. Cannot build webhook URL.");
+        return;
+    }
+    const webhookUrl = `https://${region}-${projectId}.cloudfunctions.net/assemblyAiWebhook`;
+    functions.logger.log(`Using production webhook URL: ${webhookUrl}`);
+    // ----------------------------
 
     const assemblyai = new AssemblyAI({apiKey: ASSEMBLYAI_API_KEY});
     const {bucket, name: filePath, contentType} = object;
 
-    // Standard file validation
     if (!filePath?.startsWith("audits/")) {
       functions.logger.log(`Ignoring file: ${filePath} (not in audits folder).`);
       return;
@@ -62,7 +70,6 @@ export const onAudioUploadedV1 = functions.storage.object().onFinalize(
       
       functions.logger.log(`Submitting audio from ${fileUrl} to AssemblyAI.`);
       
-      // Submit the transcript and provide our webhook URL for the callback
       const transcript = await assemblyai.transcripts.create({
         audio_url: fileUrl,
         speaker_labels: true,
@@ -80,7 +87,6 @@ export const onAudioUploadedV1 = functions.storage.object().onFinalize(
 
     } catch (error) {
       functions.logger.error("Error processing audio:", error);
-      // Update the doc to reflect the failure
       const auditQuery = await db.collection("audits").where("storagePath", "==", filePath).limit(1).get();
       if (!auditQuery.empty) {
         await auditQuery.docs[0].ref.update({status: "Transcription Failed", error: (error as Error).message});
@@ -94,19 +100,16 @@ export const onAudioUploadedV1 = functions.storage.object().onFinalize(
  * =================================================================================
  * This HTTPS-triggered function receives the finished transcript from AssemblyAI.
  */
-export const assemblyAiWebhook = functions.https.onRequest(async (req, res) => {
-  // 1. Verify the webhook secret to ensure the request is from AssemblyAI
+export const assemblyAiWebhook = functions.region("asia-south1").https.onRequest(async (req, res) => {
   if (req.headers["x-webhook-secret"] !== WEBHOOK_SECRET) {
     functions.logger.warn("Webhook called with invalid secret.");
     res.status(401).send("Unauthorized");
     return;
   }
 
-  // 2. Check the transcript status
   const {transcript_id, status} = req.body;
   if (status === "error") {
     functions.logger.error(`Transcription failed for ID: ${transcript_id}. Reason: ${req.body.error}`);
-    // Update Firestore to reflect the error
     const auditQuery = await db.collection("audits").where("assemblyaiTranscriptId", "==", transcript_id).limit(1).get();
     if (!auditQuery.empty) {
       await auditQuery.docs[0].ref.update({status: "Transcription Failed", error: req.body.error});
@@ -121,7 +124,6 @@ export const assemblyAiWebhook = functions.https.onRequest(async (req, res) => {
      return;
   }
   
-  // 3. Find the corresponding document in Firestore
   const auditQuery = await db.collection("audits").where("assemblyaiTranscriptId", "==", transcript_id).limit(1).get();
   if (auditQuery.empty) {
     functions.logger.error(`No Firestore document found for AssemblyAI transcript ID: ${transcript_id}`);
@@ -131,7 +133,6 @@ export const assemblyAiWebhook = functions.https.onRequest(async (req, res) => {
 
   const auditDoc = auditQuery.docs[0];
 
-  // 4. Update the Firestore document with the transcript data
   try {
     const utterances = req.body.utterances.map((u: any) => ({
         speaker: u.speaker,
