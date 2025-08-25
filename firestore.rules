@@ -8,13 +8,28 @@ service cloud.firestore {
 
     // Rules for the 'users' collection
     match /users/{userId} {
-      // Allow a user to be created.
-      // Note: This does not check *who* is creating the user.
-      // That is handled by our secure API route, which is only accessible to Admins.
+      // Allow a user to be created via our secure API route.
       allow create: if true;
-
-      // Allow a logged-in user to read their own document.
+      // Allow a logged-in user to read their own document to get their role.
       allow read: if request.auth.uid == userId;
+    }
+
+    // Rules for the 'audits' collection
+    match /audits/{auditId} {
+      // Allow authenticated Admins or QA users to create new audit documents.
+      // This rule checks the user's role from their document in the 'users' collection.
+      allow create: if request.auth.uid != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'QA'
+      );
+
+      // Allow any authenticated user to read the audit data for the dashboard.
+      // We can restrict this further if needed (e.g., agents can only see their own).
+      allow read: if request.auth.uid != null;
+
+      // Restrict updates and deletes to backend functions or Admins for now.
+      allow update, delete: if request.auth.uid != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
     }
   }
 }

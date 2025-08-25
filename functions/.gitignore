@@ -1,0 +1,15 @@
+# Add this to your functions/.gitignore file
+
+# Dependencies
+node_modules/
+
+# Transpiled JavaScript files
+lib/
+
+# Local Environment Variables
+.env.local
+.env.*.local
+
+# Firebase emulators and logs
+.firebase/
+firebase-debug.log

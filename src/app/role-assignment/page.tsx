@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ import {
 
 
 function RoleAssignmentPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -75,6 +77,10 @@ function RoleAssignmentPage() {
     }
   };
 
+  const handleBack = () => {
+    router.push('/admin');
+  };
+
   return (
     <>
       <AlertDialog open={!!feedback} onOpenChange={() => setFeedback(null)}>
@@ -93,7 +99,10 @@ function RoleAssignmentPage() {
         <div className="mx-auto w-full max-w-2xl">
           <Card>
             <CardHeader>
-              <CardTitle>User Role Management</CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle>User Role Management</CardTitle>
+                <Button variant="outline" onClick={handleBack}>Back</Button>
+              </div>
               <CardDescription>
                 Create a new user and assign them a role. Provide them with the generated temporary password.
               </CardDescription>

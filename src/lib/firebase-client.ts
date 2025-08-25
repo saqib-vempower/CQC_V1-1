@@ -1,8 +1,8 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,15 +13,27 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Client-side initialization
-function initFirebase() {
-  if (!getApps().length) {
-    initializeApp(firebaseConfig);
+// Initialize Firebase
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+// Connect to emulators in development
+if (process.env.NODE_ENV === 'development') {
+  // Check if the emulators are already running to avoid errors on hot reloads
+  // @ts-ignore - _emulatorConfig is a private property but useful here
+  if (!auth.emulatorConfig) {
+    connectAuthEmulator(auth, 'http://localhost:9099');
+  }
+  // @ts-ignore
+  if (!db._settings.host.includes('localhost')) {
+    connectFirestoreEmulator(db, 'localhost', 8080);
+  }
+  // @ts-ignore
+  if (!storage.emulator) {
+    connectStorageEmulator(storage, 'localhost', 9199);
   }
 }
 
-initFirebase();
-
-export const auth = getAuth();
-export const db = getFirestore();
-export const storage = getStorage();
+export { auth, db, storage };
