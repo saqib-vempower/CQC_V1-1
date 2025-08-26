@@ -1,44 +1,34 @@
 import * as functions from "firebase-functions";
 import {initializeApp} from "firebase-admin/app";
 import {getFirestore} from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 import {AssemblyAI} from "assemblyai";
 import * as admin from "firebase-admin";
 
 // Initialize Firebase Admin SDK
 initializeApp();
 const db = getFirestore();
+const storage = getStorage();
 
-// --- CONFIGURATION ---
-const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
-const WEBHOOK_SECRET = process.env.ASSEMBLYAI_WEBHOOK_SECRET;
+// Define the secrets that our functions need to access
+const requiredSecrets = ["ASSEMBLYAI_API_KEY", "ASSEMBLYAI_WEBHOOK_SECRET"];
 
 /**
  * =================================================================================
- * 1. ON AUDIO UPLOADED - Transcription Initiator
+ * 1. ON AUDIO UPLOADED - Transcription Initiator (The "Fan-Out")
  * =================================================================================
- * This v1 Storage-triggered function kicks off the transcription process with AssemblyAI.
  */
-export const onAudioUploadedV1 = functions.storage.object().onFinalize(
+export const onAudioUploadedV1 = functions.runWith({secrets: requiredSecrets}).storage.object().onFinalize(
   async (object) => {
+    const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
+    const WEBHOOK_SECRET = process.env.ASSEMBLYAI_WEBHOOK_SECRET;
+
     if (!ASSEMBLYAI_API_KEY || !WEBHOOK_SECRET) {
-      functions.logger.error("AssemblyAI API key or Webhook Secret is not set. Function cannot proceed.");
+      functions.logger.error("SECRETS NOT SET. Function cannot proceed.");
       return;
     }
     
-    // --- PRODUCTION WEBHOOK URL ---
-    // This function will now ONLY work in the live, deployed environment.
-    const region = "asia-south1";
-    const projectId = process.env.GCLOUD_PROJECT;
-    if (!projectId) {
-        functions.logger.error("GCLOUD_PROJECT environment variable not set. Cannot build webhook URL.");
-        return;
-    }
-    const webhookUrl = `https://${region}-${projectId}.cloudfunctions.net/assemblyAiWebhook`;
-    functions.logger.log(`Using production webhook URL: ${webhookUrl}`);
-    // ----------------------------
-
-    const assemblyai = new AssemblyAI({apiKey: ASSEMBLYAI_API_KEY});
-    const {bucket, name: filePath, contentType} = object;
+    const {bucket: bucketName, name: filePath, contentType} = object;
 
     if (!filePath?.startsWith("audits/")) {
       functions.logger.log(`Ignoring file: ${filePath} (not in audits folder).`);
@@ -49,33 +39,41 @@ export const onAudioUploadedV1 = functions.storage.object().onFinalize(
       return;
     }
 
-    functions.logger.log(`Processing audio file: ${filePath}`);
+    const auditQuery = await db.collection("audits").where("storagePath", "==", filePath).limit(1).get();
+    if (auditQuery.empty) {
+        functions.logger.error(`FATAL: No Firestore document found for storage path: ${filePath}`);
+        return;
+    }
+    const auditDoc = auditQuery.docs[0];
+    const auditId = auditDoc.id;
 
     try {
-      const auditQuery = await db.collection("audits").where("storagePath", "==", filePath).limit(1).get();
-      if (auditQuery.empty) {
-        functions.logger.error(`No Firestore document found for storage path: ${filePath}`);
-        return;
-      }
-
-      const auditDoc = auditQuery.docs[0];
-      const auditId = auditDoc.id;
-
       if (auditDoc.data().status !== "Uploaded") {
         functions.logger.log(`Audit ${auditId} already processed. Skipping.`);
         return;
       }
 
-      const fileUrl = `gs://${bucket}/${filePath}`;
+      const region = "asia-south1";
+      const projectId = process.env.GCLOUD_PROJECT;
+      if (!projectId) throw new Error("GCLOUD_PROJECT env variable not set.");
       
-      functions.logger.log(`Submitting audio from ${fileUrl} to AssemblyAI.`);
+      const webhookUrl = `https://${region}-${projectId}.cloudfunctions.net/assemblyAiWebhook?auditId=${auditId}`;
+    
+      const assemblyai = new AssemblyAI({apiKey: ASSEMBLYAI_API_KEY});
+      
+      const bucket = storage.bucket(bucketName);
+      const file = bucket.file(filePath);
+      const [publicUrl] = await file.getSignedUrl({
+          action: 'read',
+          expires: Date.now() + 60 * 60 * 1000,
+      });
       
       const transcript = await assemblyai.transcripts.create({
-        audio_url: fileUrl,
+        audio_url: publicUrl,
         speaker_labels: true,
         webhook_url: webhookUrl,
         webhook_auth_header_name: "x-webhook-secret",
-        webhook_auth_header_value: WEBHOOK_SECRET,
+        webhook_auth_header_value: WEBHOOK_SECRET, // This is now safe
       });
 
       await auditDoc.ref.update({
@@ -83,74 +81,100 @@ export const onAudioUploadedV1 = functions.storage.object().onFinalize(
         assemblyaiTranscriptId: transcript.id,
       });
 
-      functions.logger.info(`Successfully submitted ${filePath}. Audit ID: ${auditId}, AssemblyAI ID: ${transcript.id}`);
+      functions.logger.info(`Successfully submitted to AssemblyAI. Audit ID: ${auditId}`);
 
-    } catch (error) {
-      functions.logger.error("Error processing audio:", error);
-      const auditQuery = await db.collection("audits").where("storagePath", "==", filePath).limit(1).get();
-      if (!auditQuery.empty) {
-        await auditQuery.docs[0].ref.update({status: "Transcription Failed", error: (error as Error).message});
-      }
+    } catch (error: any) {
+      const errorMessage = error.message || "An unknown error occurred.";
+      functions.logger.error(`[FATAL] Error processing audit ${auditId}:`, errorMessage);
+      await auditDoc.ref.update({ status: "Transcription Failed", error: errorMessage });
     }
   });
 
 /**
  * =================================================================================
- * 2. ASSEMBLY AI WEBHOOK - Transcription Receiver
+ * 2. ASSEMBLY AI WEBHOOK - Transcription Receiver (The "Fan-In")
  * =================================================================================
- * This HTTPS-triggered function receives the finished transcript from AssemblyAI.
  */
-export const assemblyAiWebhook = functions.region("asia-south1").https.onRequest(async (req, res) => {
+export const assemblyAiWebhook = functions.runWith({secrets: ["ASSEMBLYAI_API_KEY", "ASSEMBLYAI_WEBHOOK_SECRET"]}).region("asia-south1").https.onRequest(async (req, res) => {
+  const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
+  const WEBHOOK_SECRET = process.env.ASSEMBLYAI_WEBHOOK_SECRET;
+
+  if (!ASSEMBLYAI_API_KEY || !WEBHOOK_SECRET) {
+      functions.logger.error("Webhook secrets not configured.");
+      res.status(500).send("Internal configuration error.");
+      return;
+  }
+
   if (req.headers["x-webhook-secret"] !== WEBHOOK_SECRET) {
     functions.logger.warn("Webhook called with invalid secret.");
     res.status(401).send("Unauthorized");
     return;
   }
 
-  const {transcript_id, status} = req.body;
-  if (status === "error") {
-    functions.logger.error(`Transcription failed for ID: ${transcript_id}. Reason: ${req.body.error}`);
-    const auditQuery = await db.collection("audits").where("assemblyaiTranscriptId", "==", transcript_id).limit(1).get();
-    if (!auditQuery.empty) {
-      await auditQuery.docs[0].ref.update({status: "Transcription Failed", error: req.body.error});
-    }
-    res.status(200).send("Error acknowledged.");
+  const { auditId } = req.query;
+  if (typeof auditId !== 'string') {
+    functions.logger.error("Webhook called without a valid auditId query parameter.");
+    res.status(400).send("Bad Request: Missing auditId");
     return;
   }
 
-  if (status !== "completed") {
-     functions.logger.info(`Received non-completed status '${status}' for transcript ${transcript_id}. Ignoring.`);
-     res.status(200).send("Status acknowledged.");
-     return;
-  }
-  
-  const auditQuery = await db.collection("audits").where("assemblyaiTranscriptId", "==", transcript_id).limit(1).get();
-  if (auditQuery.empty) {
-    functions.logger.error(`No Firestore document found for AssemblyAI transcript ID: ${transcript_id}`);
-    res.status(404).send("Audit not found.");
+  const { transcript_id, status } = req.body;
+  if (!transcript_id) {
+    functions.logger.error("Webhook called without a transcript_id in the body.");
+    res.status(400).send("Bad Request: Missing transcript_id");
     return;
   }
 
-  const auditDoc = auditQuery.docs[0];
+  const auditDocRef = db.collection("audits").doc(auditId);
 
   try {
-    const utterances = req.body.utterances.map((u: any) => ({
-        speaker: u.speaker,
-        text: u.text,
-    }));
+    const docSnapshot = await auditDocRef.get();
+    if (docSnapshot.exists && docSnapshot.data()?.status === "Transcribed") {
+      functions.logger.log(`Audit ${auditId} has already been transcribed. Acknowledging webhook retry.`);
+      res.status(200).send("OK");
+      return;
+    }
 
-    await auditDoc.ref.update({
+    if (status === "error") {
+      const errorMessage = req.body.error || "Unknown error from AssemblyAI.";
+      await auditDocRef.update({status: "Transcription Failed", error: errorMessage});
+      res.status(200).send("OK");
+      return;
+    }
+
+    if (status !== "completed") {
+      res.status(200).send("OK");
+      return;
+    }
+
+    const assemblyai = new AssemblyAI({apiKey: ASSEMBLYAI_API_KEY});
+    const completedTranscript = await assemblyai.transcripts.get(transcript_id);
+    
+    if (!completedTranscript) {
+        throw new Error("Fetched transcript from AssemblyAI was empty or invalid.");
+    }
+
+    const utterances = (Array.isArray(completedTranscript.utterances) ? completedTranscript.utterances : []).map((u: any) => ({
+        speaker: u.speaker || 'N/A',
+        text: u.text || '',
+    }));
+    
+    await auditDocRef.update({
       status: "Transcribed",
-      transcript: req.body.text,
+      transcript: completedTranscript.text || "",
       utterances: utterances,
       transcribedAt: admin.firestore.FieldValue.serverTimestamp(),
+      error: admin.firestore.FieldValue.delete(),
     });
 
-    functions.logger.info(`Successfully processed transcript for audit ID: ${auditDoc.id}`);
-    res.status(200).send("Transcript processed successfully.");
+    functions.logger.info(`Successfully fetched and saved transcript for audit ID: ${auditId}`);
+    
+    res.status(200).send("OK");
 
-  } catch (error) {
-    functions.logger.error(`Error updating Firestore for audit ID: ${auditDoc.id}`, error);
-    res.status(500).send("Internal server error.");
+  } catch (error: any) {
+    const errorMessage = error.message || "An unknown error occurred.";
+    functions.logger.error(`Error processing webhook for audit ID ${auditId}:`, errorMessage);
+    await auditDocRef.update({status: "Transcription Failed", error: errorMessage});
+    res.status(500).send("Internal Server Error");
   }
 });

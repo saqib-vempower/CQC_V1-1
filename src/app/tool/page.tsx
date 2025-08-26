@@ -4,11 +4,11 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge"; // Import the Badge component
+import { Badge } from "@/components/ui/badge";
+import { PageCardLayout } from "@/components/ui/PageCardLayout"; // Import the new layout
 import withAuthorization from '@/components/withAuthorization';
 import { useAuth } from '@/context/AuthContext';
 import { storage, db } from '@/lib/firebase-client';
@@ -146,7 +146,7 @@ function ToolPage() {
     if (status === 'idle' || !statusMessage) return null;
     
     let variant: "default" | "destructive" | "secondary" = "default";
-    if (status === 'success') variant = 'secondary'; // Green in shadcn UI by default
+    if (status === 'success') variant = 'secondary';
     if (status === 'error') variant = 'destructive';
     
     return (
@@ -159,73 +159,61 @@ function ToolPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
-      <div className="mx-auto w-full max-w-2xl">
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle>Call Auditing Tool</CardTitle>
-              <Button variant="outline" onClick={handleBack} disabled={status === 'loading'}>Back</Button>
+    <PageCardLayout
+      title="Call Auditing Tool"
+      description="Upload call recordings (MP3 format) and provide metadata for auditing."
+      headerContent={<Button variant="outline" onClick={handleBack} disabled={status === 'loading'}>Back</Button>}
+    >
+      <div className="grid gap-6">
+        <fieldset disabled={status === 'loading'}>
+          <div className="grid gap-6">
+            <div className="grid gap-2">
+              <Label htmlFor="university-name">University Name</Label>
+              <Select onValueChange={setUniversity} value={university}>
+                <SelectTrigger><SelectValue placeholder="Select University" /></SelectTrigger>
+                <SelectContent>{universityOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
-            <CardDescription>
-              Upload call recordings (MP3 format) and provide metadata for auditing.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-6">
-              <fieldset disabled={status === 'loading'}>
-                <div className="grid gap-6">
-                  {/* Form fields remain the same */}
-                   <div className="grid gap-2">
-                    <Label htmlFor="university-name">University Name</Label>
-                    <Select onValueChange={setUniversity} value={university}>
-                      <SelectTrigger><SelectValue placeholder="Select University" /></SelectTrigger>
-                      <SelectContent>{universityOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="call-domain">Call Domain</Label>
-                    <Select onValueChange={setDomain} value={domain}>
-                      <SelectTrigger><SelectValue placeholder="Select Domain" /></SelectTrigger>
-                      <SelectContent>{domainOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="call-type">Call Type</Label>
-                    <Select onValueChange={setCallType} value={callType}>
-                      <SelectTrigger><SelectValue placeholder="Select Call Type" /></SelectTrigger>
-                      <SelectContent>{callTypeOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="call-date">Date of Call (Optional)</Label>
-                    <Input id="call-date" type="date" value={callDate} onChange={e => setCallDate(e.target.value)} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="call-files">Call Recording Files</Label>
-                    <Input id="call-files" type="file" accept=".mp3,audio/mpeg" multiple onChange={handleFileChange} />
-                    <p className="text-sm text-gray-500">File naming format: AgentName_ApplicantID.mp3</p>
-                  </div>
-                </div>
-              </fieldset>
-              
-              {getStatusChip()}
+            <div className="grid gap-2">
+              <Label htmlFor="call-domain">Call Domain</Label>
+              <Select onValueChange={setDomain} value={domain}>
+                <SelectTrigger><SelectValue placeholder="Select Domain" /></SelectTrigger>
+                <SelectContent>{domainOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="call-type">Call Type</Label>
+              <Select onValueChange={setCallType} value={callType}>
+                <SelectTrigger><SelectValue placeholder="Select Call Type" /></SelectTrigger>
+                <SelectContent>{callTypeOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="call-date">Date of Call (Optional)</Label>
+              <Input id="call-date" type="date" value={callDate} onChange={e => setCallDate(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="call-files">Call Recording Files</Label>
+              <Input id="call-files" type="file" accept=".mp3,audio/mpeg" multiple onChange={handleFileChange} />
+              <p className="text-sm text-gray-500">File naming format: AgentName_ApplicantID.mp3</p>
+            </div>
+          </div>
+        </fieldset>
+        
+        {getStatusChip()}
 
-              <div className="mt-4 grid grid-cols-1 gap-2">
-                <Button onClick={handleUpload} className="w-full" disabled={status === 'loading' || !files || status === 'error'}>
-                  {status === 'loading' ? 'Uploading...' : 'Upload and Audit Calls'}
-                </Button>
-                <Link href="/dashboard" passHref>
-                  <Button variant="secondary" className="w-full" disabled={status === 'loading'}>
-                    Dashboard
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="mt-4 grid grid-cols-1 gap-2">
+          <Button onClick={handleUpload} className="w-full" disabled={status === 'loading' || !files || status === 'error'}>
+            {status === 'loading' ? 'Uploading...' : 'Upload and Audit Calls'}
+          </Button>
+          <Link href="/dashboard" passHref>
+            <Button variant="secondary" className="w-full" disabled={status === 'loading'}>
+              Dashboard
+            </Button>
+          </Link>
+        </div>
       </div>
-    </div>
+    </PageCardLayout>
   );
 }
 

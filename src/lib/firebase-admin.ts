@@ -5,18 +5,25 @@ let adminDb: admin.firestore.Firestore;
 let initializationError: Error | null = null;
 
 try {
-  const base64Credentials = process.env.ADMIN_SDK_BASE64;
+  // Read the service account details from individual environment variables
+  const projectId = process.env.APP_FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.APP_FIREBASE_CLIENT_EMAIL;
+  // Replace the literal `\n` characters with actual newlines
+  const privateKey = process.env.APP_FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
-  if (!base64Credentials) {
-    throw new Error('ADMIN_SDK_BASE64 is not set in .env.local');
+  if (!projectId || !clientEmail || !privateKey) {
+    throw new Error('Server configuration error: APP_FIREBASE_PROJECT_ID, APP_FIREBASE_CLIENT_EMAIL, and APP_FIREBASE_PRIVATE_KEY must be set in .env.local');
   }
 
-  // Decode the Base64 string back into the JSON credentials
-  const decodedCredentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
-  const serviceAccount = JSON.parse(decodedCredentials);
+  const serviceAccount = {
+    projectId,
+    clientEmail,
+    privateKey,
+  };
 
   if (!admin.apps.length) {
     admin.initializeApp({
+      // Use the constructed credential object
       credential: admin.credential.cert(serviceAccount),
     });
   }

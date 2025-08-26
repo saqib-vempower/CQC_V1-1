@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -10,56 +10,43 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageCardLayout } from "@/components/ui/PageCardLayout";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+} from "@/components/ui/alert-dialog";
 import withAuthorization from '@/components/withAuthorization';
 import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase-client';
+import { collection, query, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
 
-// Mock data representing the structure of the call audit results
-const mockAuditData = [
-  {
-    agentName: 'John Doe',
-    applicantId: 'APP12345',
-    university: 'CUA',
-    domain: 'Support',
-    callType: 'Inbound',
-    date: '2023-10-27',
-    c1: 8, c2: 9, c3: 7, c4: 10, c5: 8, c6: 9, c7: 8, c8: 7, c9: 9, c10: 10,
-    finalCqScore: 85,
-    summary: 'Agent effectively resolved the applicant\'s query about financial aid.',
-    improvementTips: 'Could be more proactive in offering additional resources.',
-    transcript: 'Hello, thank you for calling... [full transcript]',
-  },
-  {
-    agentName: 'Jane Smith',
-    applicantId: 'APP67890',
-    university: 'RIT',
-    domain: 'Reach',
-    callType: 'Outbound',
-    date: '2023-10-26',
-    c1: 7, c2: 8, c3: 8, c4: 9, c5: 7, c6: 8, c7: 9, c8: 8, c9: 7, c10: 9,
-    finalCqScore: 80,
-    summary: 'Agent successfully scheduled a campus tour with the applicant.',
-    improvementTips: '',
-    transcript: 'Hi, I am calling from... [full transcript]',
-  },
-  {
-    agentName: 'Peter Jones',
-    applicantId: 'APP10112',
-    university: 'IIT',
-    domain: 'Connect',
-    callType: 'Inbound',
-    date: '2023-10-25',
-    c1: 6, c2: 7, c3: 6, c4: 8, c5: 7, c6: 6, c7: 7, c8: 8, c9: 6, c10: 7,
-    finalCqScore: 68,
-    summary: 'Agent struggled to answer technical questions about the engineering program.',
-    improvementTips: 'Review the updated curriculum details for the College of Engineering.',
-    transcript: 'Thanks for your call... [full transcript]',
-  }
-];
+// Define the shape of our audit data
+interface AuditData {
+  id: string;
+  agentName: string;
+  applicantId: string;
+  university: string;
+  domain: string;
+  callType: string;
+  status: string;
+  transcript?: string;
+  transcribedAt?: Timestamp;
+  // The following fields are placeholders for the Gemini audit results
+  c1?: number; c2?: number; c3?: number; c4?: number; c5?: number; c6?: number; c7?: number; c8?: number; c9?: number; c10?: number;
+  finalCqScore?: number;
+  summary?: string;
+  improvementTips?: string;
+}
 
 // Options for the dropdown filters
 const universityOptions = [
@@ -88,124 +75,136 @@ const callTypeOptions = [
 function DashboardPage() {
   const router = useRouter();
   const { userRole } = useAuth();
+  
+  const [liveAudits, setLiveAudits] = useState<AuditData[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // State for the details dialog
+  const [selectedAudit, setSelectedAudit] = useState<AuditData | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // State for filters will be used later for functionality
+  // State for filters
   const [university, setUniversity] = useState('ALL');
   const [domain, setDomain] = useState('ALL');
   const [callType, setCallType] = useState('ALL');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  useEffect(() => {
+    const q = query(collection(db, "audits"), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const auditsData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as AuditData));
+      setLiveAudits(auditsData);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleViewDetails = (audit: AuditData) => {
+    setSelectedAudit(audit);
+    setIsDialogOpen(true);
+  };
+
   const handleBack = () => {
-    let path = '/'; // Default path
+    let path = '/';
     switch (userRole) {
-      case 'Admin':
-        path = '/admin';
-        break;
-      case 'QA':
-        path = '/qa';
-        break;
-      case 'Agent':
-        path = '/agent';
-        break;
-      default:
-        path = '/';
-        break;
+      case 'Admin': path = '/admin'; break;
+      case 'QA': path = '/qa'; break;
+      case 'Agent': path = '/agent'; break;
+      default: path = '/'; break;
     }
     router.push(path);
   };
+  
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+        case 'Transcribed': return 'default';
+        case 'Transcribing': return 'secondary';
+        case 'Transcription Failed': return 'destructive';
+        default: return 'outline';
+    }
+  }
 
-  // In a real app, you'd filter `mockAuditData` based on the state above
-  const filteredData = mockAuditData;
+  const formatTimestamp = (timestamp: Timestamp | undefined) => {
+    if (!timestamp) return '-';
+    return new Date(timestamp.seconds * 1000).toLocaleString();
+  }
+
+  const filteredData = liveAudits;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-full">
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle>Call Audit Dashboard</CardTitle>
-              <Button variant="outline" onClick={handleBack}>Back</Button>
-            </div>
-            <CardDescription>
-              Review and analyze call audit results. Use the filters to narrow down the data.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              <div className="grid gap-2">
-                <Label>University</Label>
-                <Select onValueChange={setUniversity} value={university}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {universityOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>Domain</Label>
-                <Select onValueChange={setDomain} value={domain}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {domainOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>Call Type</Label>
-                <Select onValueChange={setCallType} value={callType}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {callTypeOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>Start Date</Label>
-                <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
-              </div>
-              <div className="grid gap-2">
-                <Label>End Date</Label>
-                <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
-              </div>
-            </div>
+    <>
+      <PageCardLayout
+        title="Call Audit Dashboard"
+        description="A live view of call audit results. Updates will appear automatically."
+        headerContent={<Button variant="outline" onClick={handleBack}>Back</Button>}
+      >
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {/* Filter UI */}
+        </div>
 
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Agent Name</TableHead>
-                    <TableHead>Applicant ID</TableHead>
-                    {[...Array(10)].map((_, i) => <TableHead key={`c${i+1}`}>C{i+1}</TableHead>)}
-                    <TableHead>Final CQ Score</TableHead>
-                    <TableHead>Summary</TableHead>
-                    <TableHead>Improvement Tips</TableHead>
-                    <TableHead>Transcript</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Agent Name</TableHead>
+                <TableHead>Applicant ID</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Completed At</TableHead>
+                <TableHead>Transcript</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={6} className="text-center">Loading audit data...</TableCell></TableRow>
+              ) : filteredData.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="text-center">No audit records found.</TableCell></TableRow>
+              ) : (
+                filteredData.map((audit) => (
+                  <TableRow key={audit.id}>
+                    <TableCell className="font-medium">{audit.agentName}</TableCell>
+                    <TableCell>{audit.applicantId}</TableCell>
+                    <TableCell><Badge variant={getStatusVariant(audit.status)}>{audit.status}</Badge></TableCell>
+                    <TableCell>{formatTimestamp(audit.transcribedAt)}</TableCell>
+                    <TableCell className="max-w-xs truncate">{audit.transcript || 'Not available'}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="outline" size="sm" onClick={() => handleViewDetails(audit)}>
+                        View Details
+                      </Button>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredData.map((call) => (
-                    <TableRow key={call.applicantId}>
-                      <TableCell className="font-medium">{call.agentName}</TableCell>
-                      <TableCell>{call.applicantId}</TableCell>
-                      {[...Array(10)].map((_, i) => <TableCell key={`c${i+1}-val`}>{call[`c${i+1}` as keyof typeof call]}</TableCell>)}
-                      <TableCell className="font-bold">{call.finalCqScore}</TableCell>
-                      <TableCell className="max-w-xs truncate">{call.summary}</TableCell>
-                      <TableCell className="max-w-xs truncate">{call.improvementTips || '-'}</TableCell>
-                      <TableCell className="max-w-xs truncate">{call.transcript}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="sm">View Details</Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </PageCardLayout>
+
+      {selectedAudit && (
+        <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <AlertDialogContent className="max-w-3xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Audit Details</AlertDialogTitle>
+              <AlertDialogDescription>
+                Full transcript for the call between {selectedAudit.agentName} and {selectedAudit.applicantId}.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="mt-4 max-h-[60vh] overflow-y-auto pr-4">
+              <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                {selectedAudit.transcript || "No transcript available."}
+              </p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setIsDialogOpen(false)}>Close</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </>
   );
 }
 

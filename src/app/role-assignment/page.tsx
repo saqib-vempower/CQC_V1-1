@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -13,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PageCardLayout } from "@/components/ui/PageCardLayout"; // Import the new layout
 import withAuthorization from '@/components/withAuthorization';
 import {
   AlertDialog,
@@ -67,7 +67,6 @@ function RoleAssignmentPage() {
         setEmail('');
         setRole('');
       } else {
-        // THIS IS THE CRITICAL CHANGE: We now display the specific error from the server.
         setFeedback({ type: 'error', message: result.message || 'An unknown server error occurred.' });
       }
     } catch (error) {
@@ -95,53 +94,43 @@ function RoleAssignmentPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
-        <div className="mx-auto w-full max-w-2xl">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>User Role Management</CardTitle>
-                <Button variant="outline" onClick={handleBack}>Back</Button>
-              </div>
-              <CardDescription>
-                Create a new user and assign them a role. Provide them with the generated temporary password.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-6">
-                <div className="grid gap-2">
-                  <Label htmlFor="email">User Email</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    placeholder="new.user@example.com" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="role">Assign Role</Label>
-                  <Select value={role} onValueChange={setRole}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="QA">QA</SelectItem>
-                      <SelectItem value="Agent">Agent</SelectItem>
-                      <SelectItem value="Admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="mt-2">
-                  <Button onClick={handleCreateUser} className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Creating User...' : 'Create User'}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      <PageCardLayout
+        title="User Role Management"
+        description="Create a new user and assign them a role. Provide them with the generated temporary password."
+        headerContent={<Button variant="outline" onClick={handleBack}>Back</Button>}
+      >
+        <div className="grid gap-6">
+          <div className="grid gap-2">
+            <Label htmlFor="email">User Email</Label>
+            <Input 
+              id="email" 
+              type="email" 
+              placeholder="new.user@example.com" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={isLoading}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="role">Assign Role</Label>
+            <Select value={role} onValueChange={setRole} disabled={isLoading}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="QA">QA</SelectItem>
+                <SelectItem value="Agent">Agent</SelectItem>
+                <SelectItem value="Admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="mt-2">
+            <Button onClick={handleCreateUser} className="w-full" disabled={isLoading}>
+              {isLoading ? 'Creating User...' : 'Create User'}
+            </Button>
+          </div>
         </div>
-      </div>
+      </PageCardLayout>
     </>
   );
 }
