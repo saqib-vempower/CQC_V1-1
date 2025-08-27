@@ -39,13 +39,14 @@ interface AuditData {
   domain: string;
   callType: string;
   status: string;
-  transcript?: string;
-  transcribedAt?: Timestamp;
+  // This will now store the formatted string for display
+  transcribedAt: string; 
   // The following fields are placeholders for the Gemini audit results
   c1?: number; c2?: number; c3?: number; c4?: number; c5?: number; c6?: number; c7?: number; c8?: number; c9?: number; c10?: number;
   finalCqScore?: number;
   summary?: string;
   improvementTips?: string;
+  transcript?: string; // Keep transcript optional if it might not always be there
 }
 
 // Options for the dropdown filters
@@ -90,13 +91,35 @@ function DashboardPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Helper to format Firebase Timestamp to a display string
+  const formatFirebaseTimestamp = (timestamp: Timestamp | undefined): string => {
+    if (!timestamp) return 'N/A';
+    return new Date(timestamp.seconds * 1000).toLocaleString();
+  };
+
   useEffect(() => {
     const q = query(collection(db, "audits"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const auditsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as AuditData));
+      const auditsData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          agentName: data.agentName || 'N/A',
+          applicantId: data.applicantId || 'N/A',
+          university: data.university || 'N/A',
+          domain: data.domain || 'N/A',
+          callType: data.callType || 'N/A',
+          status: data.status || 'N/A',
+          transcript: data.transcript || '',
+          // Convert Timestamp to string immediately upon fetching
+          transcribedAt: formatFirebaseTimestamp(data.transcribedAt),
+          c1: data.c1, c2: data.c2, c3: data.c3, c4: data.c4, c5: data.c5, 
+          c6: data.c6, c7: data.c7, c8: data.c8, c9: data.c9, c10: data.c10,
+          finalCqScore: data.finalCqScore,
+          summary: data.summary,
+          improvementTips: data.improvementTips,
+        } as AuditData;
+      });
       setLiveAudits(auditsData);
       setLoading(false);
     });
@@ -119,21 +142,22 @@ function DashboardPage() {
     router.push(path);
   };
   
-  const getStatusVariant = (status: string) => {
+  // Corrected getStatusVariant to use only existing Badge variants
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
         case 'Transcribed': return 'default';
-        case 'Transcribing': return 'secondary';
-        case 'Transcription Failed': return 'destructive';
+        case 'Auditing': return 'secondary';
+        case 'Completed': return 'default'; // Mapped 'Completed' to 'default'
+        case 'Transcription Failed':
+        case 'Auditing Failed': return 'destructive';
         default: return 'outline';
     }
   }
 
-  const formatTimestamp = (timestamp: Timestamp | undefined) => {
-    if (!timestamp) return '-';
-    return new Date(timestamp.seconds * 1000).toLocaleString();
-  }
-
   const filteredData = liveAudits;
+
+  // Calculate the total number of columns for the table header/body
+  const totalTableColumns = 7; // AgentName, ApplicantId, Status, Completed At, Final Score, Transcript, Actions
 
   return (
     <>
@@ -154,22 +178,25 @@ function DashboardPage() {
                 <TableHead>Applicant ID</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Completed At</TableHead>
+                <TableHead>Final Score</TableHead>{/* New column */}
                 <TableHead>Transcript</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center">Loading audit data...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={totalTableColumns} className="text-center">Loading audit data...</TableCell></TableRow>
               ) : filteredData.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center">No audit records found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={totalTableColumns} className="text-center">No audit records found.</TableCell></TableRow>
               ) : (
                 filteredData.map((audit) => (
                   <TableRow key={audit.id}>
                     <TableCell className="font-medium">{audit.agentName}</TableCell>
                     <TableCell>{audit.applicantId}</TableCell>
                     <TableCell><Badge variant={getStatusVariant(audit.status)}>{audit.status}</Badge></TableCell>
-                    <TableCell>{formatTimestamp(audit.transcribedAt)}</TableCell>
+                    {/* Render the pre-formatted string */}
+                    <TableCell>{audit.transcribedAt}</TableCell> 
+                    <TableCell>{audit.finalCqScore !== undefined ? audit.finalCqScore : 'N/A'}</TableCell>{/* Display Final Score */}
                     <TableCell className="max-w-xs truncate">{audit.transcript || 'Not available'}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm" onClick={() => handleViewDetails(audit)}>
@@ -186,17 +213,60 @@ function DashboardPage() {
 
       {selectedAudit && (
         <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <AlertDialogContent className="max-w-3xl">
+          <AlertDialogContent className="max-w-4xl">
             <AlertDialogHeader>
-              <AlertDialogTitle>Audit Details</AlertDialogTitle>
+              <AlertDialogTitle>Audit Details for {selectedAudit.agentName} ({selectedAudit.applicantId})</AlertDialogTitle>
               <AlertDialogDescription>
-                Full transcript for the call between {selectedAudit.agentName} and {selectedAudit.applicantId}.
+                Full audit results including transcript and NLP analysis.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <div className="mt-4 max-h-[60vh] overflow-y-auto pr-4">
-              <p className="text-sm text-gray-800 whitespace-pre-wrap">
-                {selectedAudit.transcript || "No transcript available."}
-              </p>
+            <div className="mt-4 max-h-[60vh] overflow-y-auto pr-4 space-y-4">
+              <div>
+                <h3 className="font-semibold mb-2">Transcript:</h3>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap border p-2 rounded-md bg-gray-50">
+                  {selectedAudit.transcript || "No transcript available."}
+                </p>
+              </div>
+
+              {selectedAudit.finalCqScore !== undefined && (
+                <div>
+                  <h3 className="font-semibold mb-2">Overall Quality Score:</h3>
+                  <p className="text-base font-bold text-blue-700">{selectedAudit.finalCqScore} / 100</p>
+                </div>
+              )}
+
+              {selectedAudit.summary && (
+                <div>
+                  <h3 className="font-semibold mb-2">Summary:</h3>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap border p-2 rounded-md">
+                    {selectedAudit.summary}
+                  </p>
+                </div>
+              )}
+
+              {selectedAudit.improvementTips && (
+                <div>
+                  <h3 className="font-semibold mb-2">Improvement Tips:</h3>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap border p-2 rounded-md">
+                    {selectedAudit.improvementTips}
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(cNum => {
+                  const score = selectedAudit[`c${cNum}` as keyof AuditData];
+                  if (score !== undefined) {
+                    return (
+                      <div key={`c${cNum}`}>
+                        <h4 className="font-medium">C{cNum} Score:</h4>
+                        <p className="text-sm">{score} / 5</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
             </div>
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => setIsDialogOpen(false)}>Close</AlertDialogAction>

@@ -5,33 +5,25 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ]
+  },
+  "functions": {
+    "source": "functions",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
     ],
     "frameworksBackend": {
-      "region": "us-central1",
-      "serviceAccount": "firebase-adminsdk-fbsvc@call-quality-compass-xbtu3.iam.gserviceaccount.com"
-    }
-  },
-  "firestore": {
-    "rules": "firestore.rules"
-  },
-  "storage": {
-    "rules": "storage.rules"
-  },
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log"
-      ],
-      "runtime": "nodejs20",
-      "region": "asia-south1",
-      "predeploy": [
-        "npm --prefix functions run build"
-      ]
-    }
-  ]
+     "region": "asia-south1",
+     "serviceAccount": "firebase-adminsdk-fbsvc@call-quality-compass-xbtu3.iam.gserviceaccount.com"
+   },
+   "runtime": "nodejs20"
+ },
+ "firestore": {
+   "rules": "firestore.rules"
+ },
+ "storage": {
+   "rules": "storage.rules"
+ }
 }
