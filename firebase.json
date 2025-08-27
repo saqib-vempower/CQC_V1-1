@@ -8,11 +8,7 @@
     ],
     "frameworksBackend": {
       "region": "us-central1",
-      "secretEnvironmentVariables": [
-        "APP_FIREBASE_PROJECT_ID",
-        "APP_FIREBASE_CLIENT_EMAIL",
-        "APP_FIREBASE_PRIVATE_KEY"
-      ]
+      "serviceAccount": "firebase-adminsdk-fbsvc@call-quality-compass-xbtu3.iam.gserviceaccount.com"
     }
   },
   "firestore": {
