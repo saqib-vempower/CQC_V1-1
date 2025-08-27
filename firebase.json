@@ -7,12 +7,7 @@
       "**/node_modules/**"
     ],
     "frameworksBackend": {
-      "region": "us-central1",
-      "secretEnvironmentVariables": [
-        "APP_FIREBASE_PROJECT_ID",
-        "APP_FIREBASE_CLIENT_EMAIL",
-        "APP_FIREBASE_PRIVATE_KEY"
-      ]
+      "region": "us-central1"
     }
   },
   "firestore": {

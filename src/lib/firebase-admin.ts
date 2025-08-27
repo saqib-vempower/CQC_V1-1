@@ -6,34 +6,34 @@ let adminAuth: Auth | null = null;
 let adminDb: Firestore | null = null;
 let initializationError: Error | null = null;
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 try {
-  const privateKey = process.env.APP_FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-  if (!process.env.APP_FIREBASE_PROJECT_ID) {
-    throw new Error('APP_FIREBASE_PROJECT_ID environment variable is not set.');
-  }
-  if (!process.env.APP_FIREBASE_CLIENT_EMAIL) {
-    throw new Error('APP_FIREBASE_CLIENT_EMAIL environment variable is not set.');
-  }
-  if (!privateKey) {
-    throw new Error('APP_FIREBASE_PRIVATE_KEY environment variable is not set.');
-  }
-
-  const serviceAccount: admin.ServiceAccount = {
-    projectId: process.env.APP_FIREBASE_PROJECT_ID,
-    clientEmail: process.env.APP_FIREBASE_CLIENT_EMAIL,
-    privateKey: privateKey,
-  };
-
   if (admin.apps.length === 0) {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
+    if (isProduction) {
+      // In production (deployed on Firebase), use automatic credentials
+      admin.initializeApp();
+      console.log('Firebase Admin SDK initialized using production automatic credentials.');
+    } else {
+      // In local development, use the service account file
+      const privateKey = process.env.APP_FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+      if (!process.env.APP_FIREBASE_PROJECT_ID || !process.env.APP_FIREBASE_CLIENT_EMAIL || !privateKey) {
+        throw new Error('Missing required Firebase Admin SDK credentials in .env.local for local development.');
+      }
+      const serviceAccount: admin.ServiceAccount = {
+        projectId: process.env.APP_FIREBASE_PROJECT_ID,
+        clientEmail: process.env.APP_FIREBASE_CLIENT_EMAIL,
+        privateKey: privateKey,
+      };
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+      console.log('Firebase Admin SDK initialized using local development credentials.');
+    }
   }
 
   adminAuth = getAuth();
   adminDb = getFirestore();
-  console.log('Firebase Admin SDK initialized successfully.');
 
 } catch (error: any) {
   console.error('!!! FIREBASE ADMIN SDK INITIALIZATION FAILED !!!', error);
