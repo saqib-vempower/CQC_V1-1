@@ -1,0 +1,11 @@
+[
+  {
+    "origin": ["https://call-quality-compass-xbtu3.web.app"],
+    "method": ["GET", "POST", "OPTIONS"],
+    "responseHeader": [
+      "Content-Type",
+      "Access-Control-Allow-Origin"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

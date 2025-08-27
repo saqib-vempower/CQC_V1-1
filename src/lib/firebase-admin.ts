@@ -1,42 +1,44 @@
-import admin from 'firebase-admin';
+import * as admin from 'firebase-admin';
+import { type Auth, getAuth } from 'firebase-admin/auth';
+import { type Firestore, getFirestore } from 'firebase-admin/firestore';
 
-let adminAuth: admin.auth.Auth;
-let adminDb: admin.firestore.Firestore;
+let adminAuth: Auth | null = null;
+let adminDb: Firestore | null = null;
 let initializationError: Error | null = null;
 
 try {
-  // Read the service account details from individual environment variables
-  const projectId = process.env.APP_FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.APP_FIREBASE_CLIENT_EMAIL;
-  // Replace the literal `\n` characters with actual newlines
   const privateKey = process.env.APP_FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
-  if (!projectId || !clientEmail || !privateKey) {
-    throw new Error('Server configuration error: APP_FIREBASE_PROJECT_ID, APP_FIREBASE_CLIENT_EMAIL, and APP_FIREBASE_PRIVATE_KEY must be set in .env.local');
+  if (!process.env.APP_FIREBASE_PROJECT_ID) {
+    throw new Error('APP_FIREBASE_PROJECT_ID environment variable is not set.');
+  }
+  if (!process.env.APP_FIREBASE_CLIENT_EMAIL) {
+    throw new Error('APP_FIREBASE_CLIENT_EMAIL environment variable is not set.');
+  }
+  if (!privateKey) {
+    throw new Error('APP_FIREBASE_PRIVATE_KEY environment variable is not set.');
   }
 
-  const serviceAccount = {
-    projectId,
-    clientEmail,
-    privateKey,
+  const serviceAccount: admin.ServiceAccount = {
+    projectId: process.env.APP_FIREBASE_PROJECT_ID,
+    clientEmail: process.env.APP_FIREBASE_CLIENT_EMAIL,
+    privateKey: privateKey,
   };
 
-  if (!admin.apps.length) {
+  if (admin.apps.length === 0) {
     admin.initializeApp({
-      // Use the constructed credential object
       credential: admin.credential.cert(serviceAccount),
     });
   }
 
-  adminAuth = admin.auth();
-  adminDb = admin.firestore();
+  adminAuth = getAuth();
+  adminDb = getFirestore();
+  console.log('Firebase Admin SDK initialized successfully.');
 
 } catch (error: any) {
   console.error('!!! FIREBASE ADMIN SDK INITIALIZATION FAILED !!!', error);
   initializationError = error;
-  // @ts-ignore
   adminAuth = null;
-  // @ts-ignore
   adminDb = null;
 }
 
