@@ -12,10 +12,8 @@ ${JSON.stringify(rubric, null, 2)}
    *   **1**: Matches the 1-anchor or shows significant deficiencies.
    *   **0**: No evidence of the criterion, or actively detrimental performance.
    *   **2, 4**: Intermediate performance levels.
-3. Calculate the \`finalCqScore\` (Final Call Quality Score) out of 100. The calculation should be:
-   \`finalCqScore = ( (C1_score * 10) + (C2_score * 12) + (C3_score * 10) + (C4_score * 12) + (C5_score * 8) + (C6_score * 10) + (C7_score * 12) + (C8_score * 8) + (C9_score * 8) + (C10_score * 10) ) / 5\`
-4. Provide a concise \`summary\` of the overall call quality, highlighting key strengths and weaknesses.
-5. Offer specific, actionable \`improvementTips\` for the agent, directly referencing the criteria where performance could be enhanced.
+3. Provide a concise \`summary\` of the overall call quality, highlighting key strengths and weaknesses.
+4. Offer specific, actionable \`improvementTips\` for the agent, directly referencing the criteria where performance could be enhanced.
 
 **Call Transcript to Audit:**
 """${transcript}"""
@@ -33,7 +31,6 @@ Your response MUST be a JSON object, and ONLY a a JSON object. Do NOT wrap the J
   "c8": <number, score 0-5>,
   "c9": <number, score 0-5>,
   "c10": <number, score 0-5>,
-  "finalCqScore": <number, total score out of 100>,
   "summary": "<string, concise summary of call quality>",
   "improvementTips": "<string, specific, actionable tips for agent improvement>"
 }
