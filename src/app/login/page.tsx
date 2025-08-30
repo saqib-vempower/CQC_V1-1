@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
@@ -23,52 +23,49 @@ import {
 } from '@/components/ui/alert-dialog';
 import Image from 'next/image';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from '@/lib/firebase-client';
+import { auth } from '@/lib/firebase-client';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { user, userRole } = useAuth();
+
+  useEffect(() => {
+    // This effect will run when the user or userRole changes.
+    // If the user is logged in and has a role, redirect them.
+    if (user && userRole) {
+      switch (userRole) {
+        case 'Admin':
+          router.push('/admin');
+          break;
+        case 'QA':
+          router.push('/qa');
+          break;
+        case 'Agent':
+          router.push('/agent');
+          break;
+        default:
+          // If the role is invalid, you might want to show an error or just redirect to a default page.
+          router.push('/');
+          break;
+      }
+    }
+  }, [user, userRole, router]);
+
 
   const handleLogin = async () => {
     if (email === '' || password === '') {
       setError('Please fill in all fields.');
       return;
     }
-
+    setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      if (user) {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
-          const role = userData.role;
-
-          // Redirect based on the user's role
-          switch (role) {
-            case 'Admin':
-              router.push('/admin');
-              break;
-            case 'QA':
-              router.push('/qa');
-              break;
-            case 'Agent':
-              router.push('/agent');
-              break;
-            default:
-              setError('Your account has an unassigned or invalid role. Please contact an administrator.');
-              break;
-          }
-        } else {
-          setError('Your user profile could not be found. Please contact an administrator to have a role assigned.');
-        }
-      }
+      await signInWithEmailAndPassword(auth, email, password);
+      // The useEffect above will handle the redirect once the user and role are available.
     } catch (err: any) {
         console.error("Firebase Login Error:", err);
         if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-email') {
@@ -76,6 +73,8 @@ export default function LoginPage() {
         } else {
             setError(`An unexpected error occurred: ${err.code || err.message}.`);
         }
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -111,6 +110,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
@@ -124,10 +124,11 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                disabled={loading}
               />
             </div>
-            <Button onClick={handleLogin} type="submit" className="w-full">
-              Login
+            <Button onClick={handleLogin} type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Logging in...' : 'Login'}
             </Button>
             <Button variant="outline" className="w-full" asChild>
               <Link href="/">Back to Home</Link>

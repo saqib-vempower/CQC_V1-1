@@ -21,7 +21,7 @@ ${JSON.stringify(rubric, null, 2)}
 """${transcript}"""
 
 **Output Format:**
-Your response MUST be a JSON object, and ONLY a JSON object. Do NOT wrap the JSON in markdown code blocks (e.g., no \`\`\`json or \`\`\` delimiters). Do NOT include any other text, explanations, or markdown outside this JSON object. The JSON object should precisely match the following structure:
+Your response MUST be a JSON object, and ONLY a a JSON object. Do NOT wrap the JSON in markdown code blocks (e.g., no \`\`\`json or \`\`\` delimiters). Do NOT include any other text, explanations, or markdown outside this JSON object. The JSON object should precisely match the following structure:
 {
   "c1": <number, score 0-5>,
   "c2": <number, score 0-5>,

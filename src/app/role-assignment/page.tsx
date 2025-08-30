@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PageCardLayout } from "@/components/ui/PageCardLayout"; // Import the new layout
+import { PageCardLayout } from "@/components/ui/PageCardLayout";
 import withAuthorization from '@/components/withAuthorization';
 import {
   AlertDialog,
@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 function RoleAssignmentPage() {
   const router = useRouter();
@@ -30,11 +30,6 @@ function RoleAssignmentPage() {
   const [role, setRole] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
-
-  // Function to generate a random, secure temporary password
-  const generateTempPassword = () => {
-    return Math.random().toString(36).slice(-10);
-  };
 
   const handleCreateUser = async () => {
     if (!email || !role) {
@@ -44,35 +39,23 @@ function RoleAssignmentPage() {
     setIsLoading(true);
     setFeedback(null);
 
-    const tempPassword = generateTempPassword();
-
     try {
-      const response = await fetch('/api/createUser', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password: tempPassword,
-          role,
-        }),
-      });
+        const functions = getFunctions();
+        const createUser = httpsCallable(functions, 'createUser');
+        const result: any = await createUser({ email, role });
 
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        setFeedback({ type: 'success', message: `User created successfully! Temporary password: ${tempPassword}` });
-        // Clear form
-        setEmail('');
-        setRole('');
-      } else {
-        setFeedback({ type: 'error', message: result.message || 'An unknown server error occurred.' });
-      }
-    } catch (error) {
-      setFeedback({ type: 'error', message: 'Failed to connect to the server. Please check your network connection.' });
+        if (result.data.success) {
+            setFeedback({ type: 'success', message: `User created successfully! Temporary password: ${result.data.tempPassword}` });
+            setEmail('');
+            setRole('');
+        } else {
+            setFeedback({ type: 'error', message: result.data.message || 'An unknown server error occurred.' });
+        }
+    } catch (error: any) {
+        console.error("Create User Error:", error);
+        setFeedback({ type: 'error', message: error.message || 'Failed to create user.' });
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
 

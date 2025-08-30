@@ -1,5 +1,13 @@
 {
   "projects": {
     "default": "call-quality-compass-xbtu3"
+  },
+  "targets": {},
+  "etags": {
+    "call-quality-compass-xbtu3": {
+      "extensionInstances": {
+        "firestore-send-email": "1a2c410057fb27cfbd39c31a5318fc3229665096fe641969a51b98ec0481209f"
+      }
+    }
   }
 }

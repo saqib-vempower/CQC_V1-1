@@ -10,26 +10,26 @@ service cloud.firestore {
     match /users/{userId} {
       // Allow a user to be created via our secure API route.
       allow create: if true;
-      // Allow a logged-in user to read their own document to get their role.
+      // Allow a logged-in user to read their own document.
       allow read: if request.auth.uid == userId;
+      // Admins can update any user's role.
+      allow update: if request.auth.token.role == 'Admin';
     }
 
     // Rules for the 'audits' collection
     match /audits/{auditId} {
       // Allow authenticated Admins or QA users to create new audit documents.
-      // This rule checks the user's role from their document in the 'users' collection.
+      // This rule now checks the custom claim, which is much faster.
       allow create: if request.auth.uid != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'QA'
+        request.auth.token.role == 'Admin' ||
+        request.auth.token.role == 'QA'
       );
 
-      // Allow any authenticated user to read the audit data for the dashboard.
-      // We can restrict this further if needed (e.g., agents can only see their own).
+      // Allow any authenticated user to read the audit data.
       allow read: if request.auth.uid != null;
 
-      // Restrict updates and deletes to backend functions or Admins for now.
-      allow update, delete: if request.auth.uid != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+      // Restrict updates and deletes to backend functions or Admins.
+      allow update, delete: if request.auth.token.role == 'Admin';
     }
   }
 }

@@ -1,4 +1,3 @@
-import * as functions from "firebase-functions";
 import {initializeApp} from "firebase-admin/app";
 import {getFirestore} from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
@@ -6,6 +5,11 @@ import {AssemblyAI} from "assemblyai";
 import * as admin from "firebase-admin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { generateGeminiAuditPrompt } from "./constants/geminiAuditPrompt";
+import {onObjectFinalized} from "firebase-functions/v2/storage";
+import {onRequest, onCall, HttpsError} from "firebase-functions/v2/https";
+import {onDocumentUpdated, onDocumentWritten} from "firebase-functions/v2/firestore";
+import {setGlobalOptions} from "firebase-functions/v2";
+import * as logger from "firebase-functions/logger";
 
 // Initialize Firebase Admin SDK
 initializeApp();
@@ -13,38 +17,86 @@ const db = getFirestore();
 const storage = getStorage();
 
 // Define the secrets that our functions need to access.
-// These should be set via `firebase functions:secrets:set SECRET_NAME`
 const requiredSecrets = ["ASSEMBLYAI_API_KEY", "ASSEMBLYAI_WEBHOOK_SECRET", "GOOGLE_GENAI_API_KEY"];
+
+// Set global options for all functions
+setGlobalOptions({ region: "asia-south1", secrets: requiredSecrets });
+
+/**
+ * =================================================================================
+ * Callable Function to Create a New User
+ * =================================================================================
+ */
+export const createUser = onCall(async (request) => {
+    // Check if the user is an Admin.
+    if (request.auth?.token.role !== 'Admin') {
+        throw new HttpsError('permission-denied', 'Only administrators can create new users.');
+    }
+
+    const { email, role } = request.data;
+    if (!email || !role) {
+        throw new HttpsError('invalid-argument', 'The function must be called with email and role arguments.');
+    }
+
+    try {
+        const tempPassword = Math.random().toString(36).slice(-10);
+        const userRecord = await admin.auth().createUser({
+            email,
+            password: tempPassword,
+        });
+
+        await admin.auth().setCustomUserClaims(userRecord.uid, { role });
+        await db.collection('users').doc(userRecord.uid).set({
+            email,
+            role,
+            createdAt: new Date().toISOString(),
+        });
+
+        return { success: true, userId: userRecord.uid, tempPassword: tempPassword };
+    } catch (error: any) {
+        logger.error('!!! CREATE USER FAILED !!!', error);
+        if (error.code === 'auth/email-already-exists') {
+            throw new HttpsError('already-exists', 'This email address is already in use by another account.');
+        }
+        throw new HttpsError('internal', 'An unexpected error occurred while creating the user.');
+    }
+});
+
 
 /**
  * =================================================================================
  * 1. ON AUDIO UPLOADED - Transcription Initiator (The "Fan-Out")
  * =================================================================================
  */
-export const onAudioUploadedV1 = functions.runWith({secrets: requiredSecrets}).storage.object().onFinalize(
-  async (object) => {
+export const onAudioUploaded = onObjectFinalized(
+  {
+    region: "asia-south2", // Pin this function to the same region as the bucket
+    timeoutSeconds: 300,
+    memory: "1GiB",
+  },
+  async (event) => {
     const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
     const WEBHOOK_SECRET = process.env.ASSEMBLYAI_WEBHOOK_SECRET;
 
     if (!ASSEMBLYAI_API_KEY || !WEBHOOK_SECRET) {
-      functions.logger.error("ASSEMBLYAI secrets not set in Secret Manager. Function cannot proceed.");
+      logger.error("ASSEMBLYAI secrets not set in Secret Manager. Function cannot proceed.");
       return;
     }
     
-    const {bucket: bucketName, name: filePath, contentType} = object;
+    const {bucket: bucketName, name: filePath, contentType} = event.data;
 
     if (!filePath?.startsWith("audits/")) {
-      functions.logger.log(`Ignoring file: ${filePath} (not in audits folder).`);
+      logger.log(`Ignoring file: ${filePath} (not in audits folder).`);
       return;
     }
     if (!contentType?.startsWith("audio/")) {
-      functions.logger.log(`Ignoring file: ${filePath} (not an audio file).`);
+      logger.log(`Ignoring file: ${filePath} (not an audio file).`);
       return;
     }
 
     const auditQuery = await db.collection("audits").where("storagePath", "==", filePath).limit(1).get();
     if (auditQuery.empty) {
-        functions.logger.error(`FATAL: No Firestore document found for storage path: ${filePath}`);
+        logger.error(`FATAL: No Firestore document found for storage path: ${filePath}`);
         return;
     }
     const auditDoc = auditQuery.docs[0];
@@ -52,11 +104,11 @@ export const onAudioUploadedV1 = functions.runWith({secrets: requiredSecrets}).s
 
     try {
       if (auditDoc.data().status !== "Uploaded") {
-        functions.logger.log(`Audit ${auditId} already processed. Skipping.`);
+        logger.log(`Audit ${auditId} already processed. Skipping.`);
         return;
       }
 
-      const region = "asia-south1";
+      const region = "asia-south1"; // The webhook function is in asia-south1
       const projectId = process.env.GCLOUD_PROJECT;
       if (!projectId) throw new Error("GCLOUD_PROJECT env variable not set.");
       
@@ -76,7 +128,7 @@ export const onAudioUploadedV1 = functions.runWith({secrets: requiredSecrets}).s
         speaker_labels: true,
         webhook_url: webhookUrl,
         webhook_auth_header_name: "x-webhook-secret",
-        webhook_auth_header_value: WEBHOOK_SECRET, // This is now safe
+        webhook_auth_header_value: WEBHOOK_SECRET,
       });
 
       await auditDoc.ref.update({
@@ -84,11 +136,11 @@ export const onAudioUploadedV1 = functions.runWith({secrets: requiredSecrets}).s
         assemblyaiTranscriptId: transcript.id,
       });
 
-      functions.logger.info(`Successfully submitted to AssemblyAI. Audit ID: ${auditId}`);
+      logger.info(`Successfully submitted to AssemblyAI. Audit ID: ${auditId}`);
 
     } catch (error: any) {
       const errorMessage = error.message || "An unknown error occurred.";
-      functions.logger.error(`[FATAL] Error processing audit ${auditId}:`, errorMessage);
+      logger.error(`[FATAL] Error processing audit ${auditId}:`, errorMessage);
       await auditDoc.ref.update({ status: "Transcription Failed", error: errorMessage });
     }
   });
@@ -98,32 +150,37 @@ export const onAudioUploadedV1 = functions.runWith({secrets: requiredSecrets}).s
  * 2. ASSEMBLY AI WEBHOOK - Transcription Receiver (The "Fan-In")
  * =================================================================================
  */
-export const assemblyAiWebhook = functions.runWith({secrets: requiredSecrets}).region("asia-south1").https.onRequest(async (req, res) => {
+export const assemblyAiWebhook = onRequest(
+  {
+    timeoutSeconds: 120,
+    memory: "512MiB",
+  },
+  async (req, res) => {
   const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
   const WEBHOOK_SECRET = process.env.ASSEMBLYAI_WEBHOOK_SECRET;
 
   if (!ASSEMBLYAI_API_KEY || !WEBHOOK_SECRET) {
-      functions.logger.error("Webhook secrets not configured in Secret Manager.");
+      logger.error("Webhook secrets not configured in Secret Manager.");
       res.status(500).send("Internal configuration error.");
       return;
   }
 
   if (req.headers["x-webhook-secret"] !== WEBHOOK_SECRET) {
-    functions.logger.warn("Webhook called with invalid secret.");
+    logger.warn("Webhook called with invalid secret.");
     res.status(401).send("Unauthorized");
     return;
   }
 
   const { auditId } = req.query;
   if (typeof auditId !== 'string') {
-    functions.logger.error("Webhook called without a valid auditId query parameter.");
+    logger.error("Webhook called without a valid auditId query parameter.");
     res.status(400).send("Bad Request: Missing auditId");
     return;
   }
 
   const { transcript_id, status } = req.body;
   if (!transcript_id) {
-    functions.logger.error("Webhook called without a transcript_id in the body.");
+    logger.error("Webhook called without a transcript_id in the body.");
     res.status(400).send("Bad Request: Missing transcript_id");
     return;
   }
@@ -133,7 +190,7 @@ export const assemblyAiWebhook = functions.runWith({secrets: requiredSecrets}).r
   try {
     const docSnapshot = await auditDocRef.get();
     if (docSnapshot.exists && docSnapshot.data()?.status === "Auditing") {
-      functions.logger.log(`Audit ${auditId} has already been transcribed and is being audited. Acknowledging webhook retry.`);
+      logger.log(`Audit ${auditId} has already been transcribed and is being audited. Acknowledging webhook retry.`);
       res.status(200).send("OK");
       return;
     }
@@ -163,20 +220,20 @@ export const assemblyAiWebhook = functions.runWith({secrets: requiredSecrets}).r
     }));
     
     await auditDocRef.update({
-      status: "Auditing", // Change status to Auditing
+      status: "Auditing",
       transcript: completedTranscript.text || "",
       utterances: utterances,
       transcribedAt: admin.firestore.FieldValue.serverTimestamp(),
       error: admin.firestore.FieldValue.delete(),
     });
 
-    functions.logger.info(`Successfully fetched and saved transcript for audit ID: ${auditId}. Moving to Auditing status.`);
+    logger.info(`Successfully fetched and saved transcript for audit ID: ${auditId}. Moving to Auditing status.`);
     
     res.status(200).send("OK");
 
   } catch (error: any) {
     const errorMessage = error.message || "An unknown error occurred.";
-    functions.logger.error(`Error processing webhook for audit ID ${auditId}:`, errorMessage);
+    logger.error(`Error processing webhook for audit ID ${auditId}:`, errorMessage);
     await auditDocRef.update({status: "Transcription Failed", error: errorMessage});
     res.status(500).send("Internal Server Error");
   }
@@ -187,24 +244,26 @@ export const assemblyAiWebhook = functions.runWith({secrets: requiredSecrets}).r
  * 3. ON TRANSCRIPT AUDITED - NLP Processor
  * =================================================================================
  */
-export const onTranscriptAuditedV1 = functions.runWith({secrets: requiredSecrets}).region("asia-south1").firestore
-  .document("audits/{auditId}")
-  .onUpdate(async (change, context) => {
-    // Access the API key via process.env for 1st Gen functions when using `runWith({secrets: [...]})`
+export const onTranscriptAudited = onDocumentUpdated(
+  {
+    document: "audits/{auditId}",
+    timeoutSeconds: 540,
+    memory: "1GiB",
+  },
+  async (event) => {
     const GOOGLE_API_KEY = process.env.GOOGLE_GENAI_API_KEY; 
 
     if (!GOOGLE_API_KEY) {
-      functions.logger.error("GOOGLE_GENAI_API_KEY not set in Secret Manager. Function cannot proceed.");
+      logger.error("GOOGLE_GENAI_API_KEY not set in Secret Manager. Function cannot proceed.");
       return;
     }
 
-    const auditId = context.params.auditId;
-    const beforeData = change.before.data();
-    const afterData = change.after.data();
+    const auditId = event.params.auditId;
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
 
-    // Ensure the status has changed to Auditing and transcript is present
     if (beforeData?.status !== "Auditing" && afterData?.status === "Auditing" && afterData?.transcript) {
-      functions.logger.info(`Starting NLP audit for audit ID: ${auditId}`);
+      logger.info(`Starting NLP audit for audit ID: ${auditId}`);
 
       const transcript = afterData.transcript;
       const auditDocRef = db.collection("audits").doc(auditId); 
@@ -229,25 +288,67 @@ export const onTranscriptAuditedV1 = functions.runWith({secrets: requiredSecrets
         const result = await model.generateContent(prompt);
         const response = result.response;
         const text = response.text();
-        functions.logger.info(`Gemini Raw Response: ${text}`);
+        logger.info(`Gemini Raw Response: ${text}`);
 
         const nlpResults = JSON.parse(text);
 
         await auditDocRef.update({ 
-          ...nlpResults, // Spread the NLP results into the document
+          ...nlpResults,
           status: "Completed",
           auditedAt: admin.firestore.FieldValue.serverTimestamp(),
-          error: admin.firestore.FieldValue.delete(), // Clear any previous errors
+          error: admin.firestore.FieldValue.delete(),
         });
 
-        functions.logger.info(`Successfully completed NLP audit for audit ID: ${auditId}. Status: Completed.`);
+        logger.info(`Successfully completed NLP audit for audit ID: ${auditId}. Status: Completed.`);
 
       } catch (error: any) {
         const errorMessage = error.message || "An unknown error occurred during NLP audit.";
-        functions.logger.error(`[FATAL] Error during NLP audit for audit ID ${auditId}:`, errorMessage);
+        logger.error(`[FATAL] Error during NLP audit for audit ID ${auditId}:`, errorMessage);
         await auditDocRef.update({ status: "Auditing Failed", error: errorMessage });
       }
     } else {
-      functions.logger.log(`Audit ${auditId} status is not transitioning to Auditing or transcript is missing. Skipping NLP audit.`);
+      logger.log(`Audit ${auditId} status is not transitioning to Auditing or transcript is missing. Skipping NLP audit.`);
     }
   });
+
+/**
+ * =================================================================================
+ * 4. ON USER DOC CHANGE - Sync Role to Custom Claims
+ * =================================================================================
+ */
+export const onUserRoleChange = onDocumentWritten("users/{userId}", async (event) => {
+    const userId = event.params.userId;
+    const afterData = event.data?.after.data();
+    const beforeData = event.data?.before.data();
+
+    const role = afterData?.role;
+    const oldRole = beforeData?.role;
+
+    // If the role hasn't changed, do nothing.
+    if (role === oldRole) {
+        logger.log(`User ${userId} role unchanged. No action taken.`);
+        return;
+    }
+
+    try {
+        // Get the user from Firebase Auth
+        const user = await admin.auth().getUser(userId);
+
+        // Get existing claims
+        const existingClaims = user.customClaims || {};
+
+        // Set the new role claim
+        const newClaims = { ...existingClaims, role: role };
+
+        // If the role is removed from Firestore, remove it from claims as well.
+        if (!role) {
+            delete newClaims.role;
+        }
+
+        await admin.auth().setCustomUserClaims(userId, newClaims);
+        logger.info(`Successfully set custom claim for user ${userId}. New role: ${role || 'none'}`);
+
+    } catch (error: any) {
+        logger.error(`Error setting custom claim for user ${userId}:`, error.message);
+    }
+});

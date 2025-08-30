@@ -1,9 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase-client';
+import { onAuthStateChanged, User, getIdTokenResult, isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
+import { auth } from '@/lib/firebase-client';
 
 // Define the shape of the context data
 interface AuthContextType {
@@ -27,19 +26,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // This effect should run only once on mount to handle the email link sign-in.
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      let email = window.localStorage.getItem('emailForSignIn');
+      if (!email) {
+        email = window.prompt('Please provide your email for confirmation');
+      }
+      if (email) {
+        signInWithEmailLink(auth, email, window.location.href)
+          .catch((err) => {
+            console.error('Error signing in with email link:', err);
+            // Optionally, show an error to the user
+          })
+          .finally(() => {
+            window.localStorage.removeItem('emailForSignIn');
+          });
+      }
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        // User is signed in
         setUser(currentUser);
-        // Now, fetch the user's role from Firestore
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          setUserRole(userDocSnap.data().role);
-        } else {
-          // Handle case where user exists in Auth but not in Firestore
-          setUserRole(null);
-        }
+        const tokenResult = await getIdTokenResult(currentUser);
+        const role = tokenResult.claims.role || null;
+        setUserRole(role as string | null);
       } else {
         // User is signed out
         setUser(null);
