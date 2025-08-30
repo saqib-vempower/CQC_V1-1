@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import Image from 'next/image';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase-client';
+import { getFirebaseServices } from '@/lib/firebase-client';
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
@@ -35,8 +35,6 @@ export default function LoginPage() {
   const { user, userRole } = useAuth();
 
   useEffect(() => {
-    // This effect will run when the user or userRole changes.
-    // If the user is logged in and has a role, redirect them.
     if (user && userRole) {
       switch (userRole) {
         case 'Admin':
@@ -49,7 +47,6 @@ export default function LoginPage() {
           router.push('/agent');
           break;
         default:
-          // If the role is invalid, you might want to show an error or just redirect to a default page.
           router.push('/');
           break;
       }
@@ -58,6 +55,7 @@ export default function LoginPage() {
 
 
   const handleLogin = async () => {
+    const { auth } = getFirebaseServices();
     if (email === '' || password === '') {
       setError('Please fill in all fields.');
       return;
@@ -65,9 +63,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // The useEffect above will handle the redirect once the user and role are available.
     } catch (err: any) {
-        console.error("Firebase Login Error:", err);
         if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-email') {
             setError('Incorrect email or password. Please try again.');
         } else {

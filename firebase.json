@@ -1,17 +1,13 @@
 {
-  "firestore": {
-    "rules": "firestore.rules"
-  },
-  "storage": {
-    "rules": "storage.rules"
-  },
   "hosting": {
     "source": ".",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
-    ]
+    ],
+    "site": "call-quality-compass-xbtu3",
+    "appAssociation": "AUTO"
   },
   "functions": {
     "source": "_firebase/functions",
@@ -19,7 +15,15 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
-    ]
+    ],
+    "serviceAccount": "firebase-adminsdk-fbsvc@call-quality-compass-xbtu3.iam.gserviceaccount.com",
+    "runtime": "nodejs20"
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
   },
   "apphosting": {
     "backendId": "cqc-webapp",

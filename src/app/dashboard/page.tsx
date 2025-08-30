@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import withAuthorization from '@/components/withAuthorization';
 import { useAuth } from '@/context/AuthContext';
-import { db } from '@/lib/firebase-client';
+import { getFirebaseServices } from '@/lib/firebase-client';
 import { collection, query, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
 
 // Define the shape of our audit data
@@ -40,7 +40,7 @@ interface AuditData {
   callType: string;
   status: string;
   // This will now store the formatted string for display
-  transcribedAt: string; 
+  completedAt: string; 
   // The following fields are placeholders for the Gemini audit results
   c1?: number; c2?: number; c3?: number; c4?: number; c5?: number; c6?: number; c7?: number; c8?: number; c9?: number; c10?: number;
   finalCqScore?: number;
@@ -94,10 +94,14 @@ function DashboardPage() {
   // Helper to format Firebase Timestamp to a display string
   const formatFirebaseTimestamp = (timestamp: Timestamp | undefined): string => {
     if (!timestamp) return 'N/A';
-    return new Date(timestamp.seconds * 1000).toLocaleString();
+    return new Date(timestamp.seconds * 1000).toLocaleString('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true
+    });
   };
 
   useEffect(() => {
+    const { db } = getFirebaseServices();
     const q = query(collection(db, "audits"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const auditsData = querySnapshot.docs.map(doc => {
@@ -111,8 +115,8 @@ function DashboardPage() {
           callType: data.callType || 'N/A',
           status: data.status || 'N/A',
           transcript: data.transcript || '',
-          // Convert Timestamp to string immediately upon fetching
-          transcribedAt: formatFirebaseTimestamp(data.transcribedAt),
+          // Use the auditedAt timestamp for the completion time
+          completedAt: formatFirebaseTimestamp(data.auditedAt),
           c1: data.c1, c2: data.c2, c3: data.c3, c4: data.c4, c5: data.c5, 
           c6: data.c6, c7: data.c7, c8: data.c8, c9: data.c9, c10: data.c10,
           finalCqScore: data.finalCqScore,
@@ -178,7 +182,7 @@ function DashboardPage() {
                 <TableHead>Applicant ID</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Completed At</TableHead>
-                <TableHead>Final Score</TableHead>{/* New column */}
+                <TableHead>Final Score</TableHead>
                 <TableHead>Transcript</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -194,9 +198,8 @@ function DashboardPage() {
                     <TableCell className="font-medium">{audit.agentName}</TableCell>
                     <TableCell>{audit.applicantId}</TableCell>
                     <TableCell><Badge variant={getStatusVariant(audit.status)}>{audit.status}</Badge></TableCell>
-                    {/* Render the pre-formatted string */}
-                    <TableCell>{audit.transcribedAt}</TableCell> 
-                    <TableCell>{audit.finalCqScore !== undefined ? audit.finalCqScore : 'N/A'}</TableCell>{/* Display Final Score */}
+                    <TableCell>{audit.completedAt}</TableCell> 
+                    <TableCell>{audit.finalCqScore !== undefined ? audit.finalCqScore : 'N/A'}</TableCell>
                     <TableCell className="max-w-xs truncate">{audit.transcript || 'Not available'}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm" onClick={() => handleViewDetails(audit)}>

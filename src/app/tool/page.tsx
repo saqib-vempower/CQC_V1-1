@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageCardLayout } from "@/components/ui/PageCardLayout"; // Import the new layout
 import withAuthorization from '@/components/withAuthorization';
 import { useAuth } from '@/context/AuthContext';
-import { storage, db } from '@/lib/firebase-client';
+import { getFirebaseServices } from '@/lib/firebase-client';
 import { ref, uploadBytes } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -92,6 +92,7 @@ function ToolPage() {
 
     setStatus('loading');
     setUploadProgress(0);
+    const { storage, db } = getFirebaseServices();
     const filesArray = Array.from(files);
     const totalFiles = filesArray.length;
     setStatusMessage(`Uploading ${uploadProgress} of ${totalFiles} files...`);

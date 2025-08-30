@@ -20,9 +20,6 @@ function AdminPage() {
           <Button onClick={() => router.push('/tool')} className="w-full">
             Go to Tool
           </Button>
-          <Button onClick={() => router.push('/role-assignment')} className="w-full">
-            Assign Roles
-          </Button>
         </div>
       </div>
     </div>

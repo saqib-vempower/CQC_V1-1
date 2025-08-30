@@ -6,9 +6,8 @@ import * as admin from "firebase-admin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { generateGeminiAuditPrompt } from "./constants/geminiAuditPrompt";
 import {onObjectFinalized} from "firebase-functions/v2/storage";
-import {onRequest, onCall, HttpsError} from "firebase-functions/v2/https";
+import {onRequest} from "firebase-functions/v2/https";
 import {onDocumentUpdated, onDocumentWritten} from "firebase-functions/v2/firestore";
-import {setGlobalOptions} from "firebase-functions/v2";
 import * as logger from "firebase-functions/logger";
 
 // Initialize Firebase Admin SDK
@@ -19,50 +18,6 @@ const storage = getStorage();
 // Define the secrets that our functions need to access.
 const requiredSecrets = ["ASSEMBLYAI_API_KEY", "ASSEMBLYAI_WEBHOOK_SECRET", "GOOGLE_GENAI_API_KEY"];
 
-// Set global options for all functions
-setGlobalOptions({ region: "asia-south1", secrets: requiredSecrets });
-
-/**
- * =================================================================================
- * Callable Function to Create a New User
- * =================================================================================
- */
-export const createUser = onCall(async (request) => {
-    // Check if the user is an Admin.
-    if (request.auth?.token.role !== 'Admin') {
-        throw new HttpsError('permission-denied', 'Only administrators can create new users.');
-    }
-
-    const { email, role } = request.data;
-    if (!email || !role) {
-        throw new HttpsError('invalid-argument', 'The function must be called with email and role arguments.');
-    }
-
-    try {
-        const tempPassword = Math.random().toString(36).slice(-10);
-        const userRecord = await admin.auth().createUser({
-            email,
-            password: tempPassword,
-        });
-
-        await admin.auth().setCustomUserClaims(userRecord.uid, { role });
-        await db.collection('users').doc(userRecord.uid).set({
-            email,
-            role,
-            createdAt: new Date().toISOString(),
-        });
-
-        return { success: true, userId: userRecord.uid, tempPassword: tempPassword };
-    } catch (error: any) {
-        logger.error('!!! CREATE USER FAILED !!!', error);
-        if (error.code === 'auth/email-already-exists') {
-            throw new HttpsError('already-exists', 'This email address is already in use by another account.');
-        }
-        throw new HttpsError('internal', 'An unexpected error occurred while creating the user.');
-    }
-});
-
-
 /**
  * =================================================================================
  * 1. ON AUDIO UPLOADED - Transcription Initiator (The "Fan-Out")
@@ -71,6 +26,7 @@ export const createUser = onCall(async (request) => {
 export const onAudioUploaded = onObjectFinalized(
   {
     region: "asia-south2", // Pin this function to the same region as the bucket
+    secrets: requiredSecrets,
     timeoutSeconds: 300,
     memory: "1GiB",
   },
@@ -108,11 +64,11 @@ export const onAudioUploaded = onObjectFinalized(
         return;
       }
 
-      const region = "asia-south1"; // The webhook function is in asia-south1
+      const webhookRegion = "asia-south1"; // The webhook function is in asia-south1
       const projectId = process.env.GCLOUD_PROJECT;
       if (!projectId) throw new Error("GCLOUD_PROJECT env variable not set.");
       
-      const webhookUrl = `https://${region}-${projectId}.cloudfunctions.net/assemblyAiWebhook?auditId=${auditId}`;
+      const webhookUrl = `https://${webhookRegion}-${projectId}.cloudfunctions.net/assemblyAiWebhook?auditId=${auditId}`;
     
       const assemblyai = new AssemblyAI({apiKey: ASSEMBLYAI_API_KEY});
       
@@ -152,6 +108,8 @@ export const onAudioUploaded = onObjectFinalized(
  */
 export const assemblyAiWebhook = onRequest(
   {
+    region: "asia-south1",
+    secrets: requiredSecrets,
     timeoutSeconds: 120,
     memory: "512MiB",
   },
@@ -247,6 +205,8 @@ export const assemblyAiWebhook = onRequest(
 export const onTranscriptAudited = onDocumentUpdated(
   {
     document: "audits/{auditId}",
+    region: "asia-south1",
+    secrets: requiredSecrets,
     timeoutSeconds: 540,
     memory: "1GiB",
   },
@@ -316,7 +276,13 @@ export const onTranscriptAudited = onDocumentUpdated(
  * 4. ON USER DOC CHANGE - Sync Role to Custom Claims
  * =================================================================================
  */
-export const onUserRoleChange = onDocumentWritten("users/{userId}", async (event) => {
+export const onUserRoleChange = onDocumentWritten(
+    {
+        document: "users/{userId}",
+        region: "asia-south1", // Corrected region
+        secrets: requiredSecrets,
+    },
+    async (event) => {
     const userId = event.params.userId;
     const afterData = event.data?.after.data();
     const beforeData = event.data?.before.data();
@@ -329,25 +295,19 @@ export const onUserRoleChange = onDocumentWritten("users/{userId}", async (event
         logger.log(`User ${userId} role unchanged. No action taken.`);
         return;
     }
+    
+    // Only act if the document still exists
+    if (!event.data?.after?.exists) {
+        logger.log(`User ${userId} document deleted. Removing claims.`);
+        await admin.auth().setCustomUserClaims(userId, null);
+        return;
+    }
 
     try {
-        // Get the user from Firebase Auth
-        const user = await admin.auth().getUser(userId);
-
-        // Get existing claims
-        const existingClaims = user.customClaims || {};
-
-        // Set the new role claim
-        const newClaims = { ...existingClaims, role: role };
-
-        // If the role is removed from Firestore, remove it from claims as well.
-        if (!role) {
-            delete newClaims.role;
-        }
-
-        await admin.auth().setCustomUserClaims(userId, newClaims);
-        logger.info(`Successfully set custom claim for user ${userId}. New role: ${role || 'none'}`);
-
+        await admin.auth().setCustomUserClaims(userId, { role: role });
+        // Add the timestamp to the user's document to notify the client
+        await event.data.after.ref.update({ claimsUpdatedAt: admin.firestore.FieldValue.serverTimestamp() });
+        logger.info(`Successfully set custom claim for user ${userId}. New role: ${role}`);
     } catch (error: any) {
         logger.error(`Error setting custom claim for user ${userId}:`, error.message);
     }

@@ -1,8 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User, getIdTokenResult, isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
-import { auth } from '@/lib/firebase-client';
+import { onAuthStateChanged, User, getIdTokenResult } from 'firebase/auth';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { getFirebaseServices } from '@/lib/firebase-client';
 
 // Define the shape of the context data
 interface AuthContextType {
@@ -26,39 +27,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // This effect should run only once on mount to handle the email link sign-in.
-    if (isSignInWithEmailLink(auth, window.location.href)) {
-      let email = window.localStorage.getItem('emailForSignIn');
-      if (!email) {
-        email = window.prompt('Please provide your email for confirmation');
-      }
-      if (email) {
-        signInWithEmailLink(auth, email, window.location.href)
-          .catch((err) => {
-            console.error('Error signing in with email link:', err);
-            // Optionally, show an error to the user
-          })
-          .finally(() => {
-            window.localStorage.removeItem('emailForSignIn');
-          });
-      }
-    }
-
+    const { auth, db } = getFirebaseServices();
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        const tokenResult = await getIdTokenResult(currentUser);
-        const role = tokenResult.claims.role || null;
-        setUserRole(role as string | null);
+
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const tokenResult = await getIdTokenResult(currentUser, true);
+          const role = tokenResult.claims.role || null;
+          setUserRole(role as string | null);
+        } else {
+          setUserRole(null);
+        }
+        
+        onSnapshot(userDocRef, async (doc) => {
+          if (doc.exists() && doc.data().claimsUpdatedAt) {
+            const refreshedTokenResult = await getIdTokenResult(currentUser, true);
+            const newRole = refreshedTokenResult.claims.role || null;
+            setUserRole(newRole as string | null);
+          }
+        });
+
       } else {
-        // User is signed out
         setUser(null);
         setUserRole(null);
       }
       setLoading(false);
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
