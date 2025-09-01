@@ -17,10 +17,10 @@
     "backendId": "ssrcallqualitycompassxb",
     "region": "us-central1",
     "cloudFunctions": [
-      "onAudioUploaded",
-      "assemblyAiWebhook",
-      "onTranscriptAudited",
-      "onUserRoleChange"
+      "onCallUpload",
+      "onAiTranscripting",
+      "onAiAuditing",
+      "onLogin"
     ]
   }
 }
