@@ -1,6 +1,6 @@
 # Settings for Backend (on Cloud Run).
 # See https://firebase.google.com/docs/app-hosting/configure#cloud-run
-backendId: cqc_v1
+backendId: ssrcallqualitycompassxb
 location: us-central1
 runConfig:
   minInstances: 0
@@ -10,16 +10,15 @@ runConfig:
   # memoryMiB: 512
 
 # Environment variables and secrets.
-# env:
+env:
   # Configure environment variables.
   # See https://firebase.google.com/docs/app-hosting/configure#user-defined-environment
-  # - variable: MESSAGE
-  #   value: Hello world!
-  #   availability:
-  #     - BUILD
-  #     - RUNTIME
-
-  # Grant access to secrets in Cloud Secret Manager.
-  # See https://firebase.google.com/docs/app-hosting/configure#secret-parameters
-  # - variable: MY_SECRET
-  #   secret: mySecretRef
+  - variable: FIREBASE_WEBAPP_CONFIG
+    # IMPORTANT: Replace this placeholder with your actual Firebase Web App Config JSON.
+    # You can find this in your Firebase Project Settings under "Your apps".
+    # It should be a single-line JSON string, for example:
+    # value: '{"apiKey":"AIza...","authDomain":"...",...}'
+    value: '{"apiKey":"AIzaSyA_ExJ7kmlhAUXDXp1CgE6nJA4e2Wo4J58","authDomain":"call-quality-compass-xbtu3.firebaseapp.com","projectId":"call-quality-compass-xbtu3","storageBucket":"call-quality-compass-xbtu3.firebasestorage.app","messagingSenderId":"975409597147","appId":"1:975409597147:web:740ccd0e5fd9f67d1f1afe"}'
+    availability:
+      - BUILD
+      - RUNTIME

@@ -1,30 +1,8 @@
 
 import React from 'react';
 import Icon, { icons } from './Icon';
+import SectionTitle from './SectionTitle';
 
-const Eyebrow = ({ children }: { children: React.ReactNode }) => (
-    <div className="inline-block text-xs uppercase tracking-wider font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full mb-3">
-      {children}
-    </div>
-);
-  
-const SectionTitle = ({
-    eyebrow,
-    title,
-    subtitle,
-}: {
-    eyebrow?: string;
-    title: string;
-    subtitle?: React.ReactNode;
-}) => (
-    <div className="text-center max-w-2xl mx-auto">
-      {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
-      <h2 className="text-3xl md:text-4xl font-bold text-foreground">{title}</h2>
-      {subtitle && (
-        <div className="mt-3 text-muted-foreground leading-relaxed">{subtitle}</div>
-      )}
-    </div>
-);
 const Flow = ({ brand }: any) => (
     <section
       id="flow"

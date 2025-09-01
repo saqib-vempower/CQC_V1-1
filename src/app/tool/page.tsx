@@ -1,19 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { PageCardLayout } from "@/components/ui/PageCardLayout"; // Import the new layout
+import { PageCardLayout } from "@/components/ui/PageCardLayout";
 import withAuthorization from '@/components/withAuthorization';
 import { useAuth } from '@/context/AuthContext';
 import { getFirebaseServices } from '@/lib/firebase-client';
 import { ref, uploadBytes } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { PageLayout } from '@/components/ui/PageLayout';
 
 const universityOptions = [
   { value: 'CUA', label: 'CUA-Catholic University of America' },
@@ -38,8 +38,7 @@ const callTypeOptions = [
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
 function ToolPage() {
-  const router = useRouter();
-  const { user, userRole } = useAuth();
+  const { user } = useAuth();
   const [university, setUniversity] = useState('');
   const [domain, setDomain] = useState('');
   const [callType, setCallType] = useState('');
@@ -132,16 +131,6 @@ function ToolPage() {
       setStatusMessage('An error occurred during the upload. Please try again.');
     }
   };
-
-  const handleBack = () => {
-    let path = '/';
-    switch (userRole) {
-      case 'Admin': path = '/admin'; break;
-      case 'QA': path = '/qa'; break;
-      default: path = '/'; break;
-    }
-    router.push(path);
-  };
   
   const getStatusChip = () => {
     if (status === 'idle' || !statusMessage) return null;
@@ -160,61 +149,62 @@ function ToolPage() {
   }
 
   return (
-    <PageCardLayout
-      title="Call Auditing Tool"
-      description="Upload call recordings (MP3 format) and provide metadata for auditing."
-      headerContent={<Button variant="outline" onClick={handleBack} disabled={status === 'loading'}>Back</Button>}
-    >
-      <div className="grid gap-6">
-        <fieldset disabled={status === 'loading'}>
-          <div className="grid gap-6">
-            <div className="grid gap-2">
-              <Label htmlFor="university-name">University Name</Label>
-              <Select onValueChange={setUniversity} value={university}>
-                <SelectTrigger><SelectValue placeholder="Select University" /></SelectTrigger>
-                <SelectContent>{universityOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-              </Select>
+    <PageLayout centered showBackButton={true}>
+      <PageCardLayout
+        title="Call Auditing Tool"
+        description="Upload call recordings (MP3 format) and provide metadata for auditing."
+      >
+        <div className="grid gap-6">
+          <fieldset disabled={status === 'loading'}>
+            <div className="grid gap-6">
+              <div className="grid gap-2">
+                <Label htmlFor="university-name">University Name</Label>
+                <Select onValueChange={setUniversity} value={university}>
+                  <SelectTrigger><SelectValue placeholder="Select University" /></SelectTrigger>
+                  <SelectContent>{universityOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="call-domain">Call Domain</Label>
+                <Select onValueChange={setDomain} value={domain}>
+                  <SelectTrigger><SelectValue placeholder="Select Domain" /></SelectTrigger>
+                  <SelectContent>{domainOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="call-type">Call Type</Label>
+                <Select onValueChange={setCallType} value={callType}>
+                  <SelectTrigger><SelectValue placeholder="Select Call Type" /></SelectTrigger>
+                  <SelectContent>{callTypeOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="call-date">Date of Call (Optional)</Label>
+                <Input id="call-date" type="date" value={callDate} onChange={e => setCallDate(e.target.value)} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="call-files">Call Recording Files</Label>
+                <Input id="call-files" type="file" accept=".mp3,audio/mpeg" multiple onChange={handleFileChange} />
+                <p className="text-sm text-gray-500">File naming format: AgentName_ApplicantID.mp3</p>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="call-domain">Call Domain</Label>
-              <Select onValueChange={setDomain} value={domain}>
-                <SelectTrigger><SelectValue placeholder="Select Domain" /></SelectTrigger>
-                <SelectContent>{domainOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="call-type">Call Type</Label>
-              <Select onValueChange={setCallType} value={callType}>
-                <SelectTrigger><SelectValue placeholder="Select Call Type" /></SelectTrigger>
-                <SelectContent>{callTypeOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="call-date">Date of Call (Optional)</Label>
-              <Input id="call-date" type="date" value={callDate} onChange={e => setCallDate(e.target.value)} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="call-files">Call Recording Files</Label>
-              <Input id="call-files" type="file" accept=".mp3,audio/mpeg" multiple onChange={handleFileChange} />
-              <p className="text-sm text-gray-500">File naming format: AgentName_ApplicantID.mp3</p>
-            </div>
-          </div>
-        </fieldset>
-        
-        {getStatusChip()}
+          </fieldset>
+          
+          {getStatusChip()}
 
-        <div className="mt-4 grid grid-cols-1 gap-2">
-          <Button onClick={handleUpload} className="w-full" disabled={status === 'loading' || !files || status === 'error'}>
-            {status === 'loading' ? 'Uploading...' : 'Upload and Audit Calls'}
-          </Button>
-          <Link href="/dashboard" passHref>
-            <Button variant="secondary" className="w-full" disabled={status === 'loading'}>
-              Dashboard
+          <div className="mt-4 grid grid-cols-1 gap-2">
+            <Button onClick={handleUpload} className="w-full" disabled={status === 'loading' || !files || status === 'error'}>
+              {status === 'loading' ? 'Uploading...' : 'Upload and Audit Calls'}
             </Button>
-          </Link>
+            <Link href="/dashboard" passHref>
+              <Button variant="secondary" className="w-full" disabled={status === 'loading'}>
+                Dashboard
+              </Button>
+            </Link>
+          </div>
         </div>
-      </div>
-    </PageCardLayout>
+      </PageCardLayout>
+    </PageLayout>
   );
 }
 

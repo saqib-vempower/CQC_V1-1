@@ -3,13 +3,14 @@
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import withAuthorization from '@/components/withAuthorization';
+import { PageLayout } from '@/components/ui/PageLayout';
 
 
 function AdminPage() {
   const router = useRouter();
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+    <PageLayout centered>
       <div className="p-8 bg-white rounded-lg shadow-md max-w-md w-full text-center">
         <h1 className="text-2xl font-bold mb-4">Admin Portal</h1>
         <p className="text-gray-600 mb-8">Welcome, Admin. Please select an option below.</p>
@@ -22,7 +23,7 @@ function AdminPage() {
           </Button>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }
 

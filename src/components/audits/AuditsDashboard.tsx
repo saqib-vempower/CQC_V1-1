@@ -34,17 +34,22 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { getFirebaseServices } from "@/lib/firebase-client";
-import { useAuth } from "@/context/AuthContext"; // Import the useAuth hook
-import { NewAuditSheet } from "./NewAuditSheet"; // Import the new component
+import { useAuth } from "@/context/AuthContext";
 
 type AuditRow = {
   id: string;
   university: string;
-  domain:string;
+  domain: string;
   agentName?: string;
   createdAt?: Timestamp | { seconds: number; nanoseconds: number } | Date;
   status:
@@ -77,15 +82,32 @@ type AuditRow = {
 
 const PAGE_SIZE = 25;
 
+const universityOptions = [
+    { value: 'all', label: 'All Universities' },
+    { value: 'CUA', label: 'CUA-Catholic University of America' },
+    { value: 'RIT', label: 'RIT-Rochester Institute of Technology' },
+    { value: 'IIT', label: 'IIT-Illinois Institute of Technology or Illinois Tech' },
+    { value: 'SLU', label: 'SLU-Saint Louis University' },
+    { value: 'DPU', label: 'DPU-DePaul University' },
+    { value: 'RU', label: 'RU-Rockhurst University' },
+  ];
+  
+  const domainOptions = [
+    { value: 'all', label: 'All Domains' },
+    { value: 'Support', label: 'Support' },
+    { value: 'Reach', label: 'Reach' },
+    { value: 'Connect', label: 'Connect' },
+  ];
+
 export default function AuditsDashboard() {
   const { db } = getFirebaseServices();
-  const { user } = useAuth(); // Get the authenticated user
+  const { user } = useAuth();
 
   // Filters
   const [university, setUniversity] = React.useState<string>("all");
   const [domain, setDomain] = React.useState<string>("all");
-  const [dateFrom, setDateFrom] = React.useState<Date | null>(null);
-  const [dateTo, setDateTo] = React.useState<Date | null>(null);
+  const [dateFrom, setDateFrom] = React.useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = React.useState<Date | undefined>(undefined);
 
   // Data
   const [rows, setRows] = React.useState<AuditRow[]>([]);
@@ -101,27 +123,45 @@ export default function AuditsDashboard() {
       setLoading(true);
       try {
         const col = collection(db, "audits");
-        const constraints: any[] = [orderBy("createdAt", "desc")];
-
+        let constraints: any[] = [];
+  
         if (university !== "all") constraints.push(where("university", "==", university));
         if (domain !== "all") constraints.push(where("domain", "==", domain));
-        if (dateFrom) constraints.push(where("createdAt", ">=", new Date(dateFrom)));
-        if (dateTo) constraints.push(where("createdAt", "<=", new Date(dateTo)));
+        if (dateFrom) constraints.push(where("createdAt", ">=", dateFrom));
+        if (dateTo) constraints.push(where("createdAt", "<=", dateTo));
+  
+        // Add orderBy clauses
+        if (university !== "all" || domain !== "all" || dateFrom || dateTo) {
+          constraints.push(orderBy("university"));
+          constraints.push(orderBy("domain"));
+          constraints.push(orderBy("createdAt", "desc"));
+        } else {
+          constraints.push(orderBy("createdAt", "desc"));
+        }
+  
         if (isNextPage && lastDoc) constraints.push(startAfter(lastDoc));
         constraints.push(limit(PAGE_SIZE));
-
+  
         const q = query(col, ...constraints);
         const snap = await getDocs(q);
-
+  
         const docs = snap.docs.map(
           (d) => ({ id: d.id, ...d.data() } as unknown as AuditRow)
         );
-
+  
         if (isNextPage) setRows((prev) => [...prev, ...docs]);
         else setRows(docs);
-
+  
         setLastDoc(snap.docs[snap.docs.length - 1] || null);
         setHasMore(snap.size === PAGE_SIZE);
+      } catch (error: any) {
+        if (error.code === 'failed-precondition') {
+          console.error("Query failed. The query requires an index. Please create it in your Firebase console.", error.toString());
+          // Clear the rows to indicate that the query failed
+          setRows([]);
+        } else {
+          console.error("An error occurred while fetching the data.", error);
+        }
       } finally {
         setLoading(false);
       }
@@ -130,58 +170,90 @@ export default function AuditsDashboard() {
   );
 
   React.useEffect(() => {
-    // refetch on filter change (reset pagination)
     setLastDoc(null);
     setHasMore(true);
     void buildQuery(false);
   }, [university, domain, dateFrom, dateTo, buildQuery]);
 
-  const openRow = React.useMemo(
-    () => rows.find((r) => r.id === openId) || null,
-    [rows, openId]
-  );
-
   return (
     <div className="space-y-4">
-      {/* Filters and Actions */}
       <div className="flex justify-between items-end">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
-          {/* Filter controls */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
+          <Select onValueChange={setUniversity} value={university}>
+            <SelectTrigger><SelectValue placeholder="Select University" /></SelectTrigger>
+            <SelectContent>{universityOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select onValueChange={setDomain} value={domain}>
+            <SelectTrigger><SelectValue placeholder="Select Domain" /></SelectTrigger>
+            <SelectContent>{domainOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+          </Select>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !dateFrom && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateFrom ? format(dateFrom, "PPP") : <span>Pick a start date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={dateFrom}
+                onSelect={setDateFrom}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !dateTo && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateTo ? format(dateTo, "PPP") : <span>Pick an end date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={dateTo}
+                onSelect={setDateTo}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         </div>
-        {/* Conditionally render the NewAuditSheet component */}
-        {user && <NewAuditSheet />}
       </div>
-      
-      {/* Rest of the component... */}
 
-      {/* Table */}
       <div className="overflow-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow className="whitespace-nowrap">
-              <TableHead className="min-w-[140px] sticky left-0 bg-background z-10">
-                University
-              </TableHead>
-              <TableHead>Domain</TableHead>
+              <TableHead>Agent Name</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Status</TableHead>
-              {/* C1..C10 */}
-              <TableHead>C1</TableHead>
-              <TableHead>C2</TableHead>
-              <TableHead>C3</TableHead>
-              <TableHead>C4</TableHead>
-              <TableHead>C5</TableHead>
-              <TableHead>C6</TableHead>
-              <TableHead>C7</TableHead>
-              <TableHead>C8</TableHead>
-              <TableHead>C9</TableHead>
-              <TableHead>C10</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead className="min-w-[240px]">Summary</TableHead>
-              <TableHead className="min-w-[240px]">Improvement Tip</TableHead>
-              <TableHead className="sticky right-0 bg-background z-10">
-                Details
-              </TableHead>
+              <TableHead>C1 Score</TableHead>
+              <TableHead>C2 Score</TableHead>
+              <TableHead>C3 Score</TableHead>
+              <TableHead>C4 Score</TableHead>
+              <TableHead>C5 Score</TableHead>
+              <TableHead>C6 Score</TableHead>
+              <TableHead>C7 Score</TableHead>
+              <TableHead>C8 Score</TableHead>
+              <TableHead>C9 Score</TableHead>
+              <TableHead>C10 Score</TableHead>
+              <TableHead>Total CQ Score</TableHead>
+              <TableHead className="min-w-[240px]">Improvement tips</TableHead>
+              <TableHead className="sticky right-0 bg-background z-10">Details</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -197,14 +269,9 @@ export default function AuditsDashboard() {
 
               return (
                 <TableRow key={r.id} className="whitespace-nowrap">
-                  <TableCell className="sticky left-0 bg-background z-10">
-                    {r.university}
-                  </TableCell>
-                  <TableCell>{r.domain}</TableCell>
+                  <TableCell>{r.agentName}</TableCell>
                   <TableCell>{format(dt, "dd MMM yyyy, HH:mm")}</TableCell>
                   <TableCell>{r.status}</TableCell>
-
-                  {/* scores */}
                   <TableCell>{r.c1}</TableCell>
                   <TableCell>{r.c2}</TableCell>
                   <TableCell>{r.c3}</TableCell>
@@ -215,17 +282,8 @@ export default function AuditsDashboard() {
                   <TableCell>{r.c8}</TableCell>
                   <TableCell>{r.c9}</TableCell>
                   <TableCell>{r.c10}</TableCell>
-
-                  <TableCell className="font-semibold">
-                    {r.finalCqScore}
-                  </TableCell>
-                  <TableCell title={r.summary}>
-                    {truncate(r.summary, 120)}
-                  </TableCell>
-                  <TableCell title={r.improvementTips}>
-                    {truncate(r.improvementTips, 120)}
-                  </TableCell>
-
+                  <TableCell className="font-semibold">{r.finalCqScore}</TableCell>
+                  <TableCell title={r.improvementTips} className="whitespace-pre-wrap max-w-xs">{truncate(r.improvementTips, 120)}</TableCell>
                   <TableCell className="sticky right-0 bg-background z-10">
                     <Sheet
                       open={openId === r.id}
@@ -297,7 +355,6 @@ function truncate(s: string, n = 120) {
 }
 
 function toTime(msOrSec: number) {
-  // If AssemblyAI gives seconds, adjust accordingly
   const s = msOrSec > 1000 ? Math.floor(msOrSec / 1000) : Math.floor(msOrSec);
   const m = Math.floor(s / 60);
   const rem = s % 60;
