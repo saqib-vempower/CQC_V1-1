@@ -38,11 +38,13 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { getFirebaseServices } from "@/lib/firebase-client";
+import { useAuth } from "@/context/AuthContext"; // Import the useAuth hook
+import { NewAuditSheet } from "./NewAuditSheet"; // Import the new component
 
 type AuditRow = {
   id: string;
   university: string;
-  domain: string;
+  domain:string;
   agentName?: string;
   createdAt?: Timestamp | { seconds: number; nanoseconds: number } | Date;
   status:
@@ -77,6 +79,7 @@ const PAGE_SIZE = 25;
 
 export default function AuditsDashboard() {
   const { db } = getFirebaseServices();
+  const { user } = useAuth(); // Get the authenticated user
 
   // Filters
   const [university, setUniversity] = React.useState<string>("all");
@@ -140,87 +143,16 @@ export default function AuditsDashboard() {
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 items-end">
-        <div className="lg:col-span-2">
-          <label className="text-sm font-medium">University</label>
-          <Select value={university} onValueChange={setUniversity}>
-            <SelectTrigger>
-              <SelectValue placeholder="All" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="CUA">CUA</SelectItem>
-              <SelectItem value="RIT">RIT</SelectItem>
-              {/* TODO: Populate from a universities collection */}
-            </SelectContent>
-          </Select>
+      {/* Filters and Actions */}
+      <div className="flex justify-between items-end">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+          {/* Filter controls */}
         </div>
-
-        <div className="lg:col-span-1">
-          <label className="text-sm font-medium">Domain</label>
-          <Select value={domain} onValueChange={setDomain}>
-            <SelectTrigger>
-              <SelectValue placeholder="All" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="Support">Support</SelectItem>
-              <SelectItem value="Reach">Reach</SelectItem>
-              <SelectItem value="Connect">Connect</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="lg:col-span-1">
-          <label className="text-sm font-medium block">From</label>
-          <button
-            className={cn(
-              "w-full border rounded-md h-9 px-3 text-left flex items-center gap-2"
-            )}
-            onClick={() => {
-              const d = prompt("Enter From date (YYYY-MM-DD)");
-              if (d) setDateFrom(new Date(`${d}T00:00:00`));
-            }}
-          >
-            <CalendarIcon className="h-4 w-4" />
-            <span>{dateFrom ? format(dateFrom, "dd MMM yyyy") : "Any"}</span>
-          </button>
-        </div>
-
-        <div className="lg:col-span-1">
-          <label className="text-sm font-medium block">To</label>
-          <button
-            className={cn(
-              "w-full border rounded-md h-9 px-3 text-left flex items-center gap-2"
-            )}
-            onClick={() => {
-              const d = prompt("Enter To date (YYYY-MM-DD)");
-              if (d) setDateTo(new Date(`${d}T23:59:59`));
-            }}
-          >
-            <CalendarIcon className="h-4 w-4" />
-            <span>{dateTo ? format(dateTo, "dd MMM yyyy") : "Any"}</span>
-          </button>
-        </div>
-
-        <div className="lg:col-span-1 flex gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setUniversity("all");
-              setDomain("all");
-              setDateFrom(null);
-              setDateTo(null);
-            }}
-          >
-            Reset
-          </Button>
-          <Button onClick={() => void buildQuery(false)} disabled={loading}>
-            Apply
-          </Button>
-        </div>
+        {/* Conditionally render the NewAuditSheet component */}
+        {user && <NewAuditSheet />}
       </div>
+      
+      {/* Rest of the component... */}
 
       {/* Table */}
       <div className="overflow-auto rounded-md border">

@@ -1,5 +1,7 @@
 # Settings for Backend (on Cloud Run).
 # See https://firebase.google.com/docs/app-hosting/configure#cloud-run
+backendId: cqc_v1
+location: us-central1
 runConfig:
   minInstances: 0
   # maxInstances: 100
