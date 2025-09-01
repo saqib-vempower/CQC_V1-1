@@ -16,11 +16,10 @@ module.exports = {
   parserOptions: {
     project: ["tsconfig.json"],
     sourceType: "module",
-    tsconfigRootDir: __dirname,
   },
   ignorePatterns: [
     "/lib/**/*", // Ignore built files.
-    ".eslintrc.js", // Ignore this file itself.
+    ".eslintrc.js" // Ignore eslint configuration file.
   ],
   plugins: [
     "@typescript-eslint",
@@ -30,8 +29,7 @@ module.exports = {
     "quotes": ["error", "double"],
     "import/no-unresolved": 0,
     "indent": ["error", 2],
-    "max-len": "off", // Disable max line length rule
-    "camelcase": "off", // Disable camelcase rule
-    "@typescript-eslint/no-non-null-assertion": "off", // Disable non-null assertion rule
+    "max-len": ["error", {"code": 120, "tabWidth": 2, "ignoreComments": true, "ignoreStrings": true, "ignoreTemplateLiterals": true, "ignoreUrls": true}],
+    "camelcase": "off"
   },
 };
