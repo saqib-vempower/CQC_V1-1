@@ -9,4 +9,5 @@ admin.initializeApp();
 export {onCallUpload} from "./audit-pipeline/initiator";
 export {onAiTranscripting} from "./audit-pipeline/receiver";
 export {onAiAuditing} from "./audit-pipeline/processor";
+export {onScored} from "./audit-pipeline/calculator";
 export {onLogin} from "./user-management";

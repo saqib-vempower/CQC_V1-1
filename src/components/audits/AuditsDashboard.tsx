@@ -51,6 +51,7 @@ type AuditRow = {
   university: string;
   domain: string;
   agentName?: string;
+  callDate?: string; // Added callDate
   createdAt?: Timestamp | { seconds: number; nanoseconds: number } | Date;
   status:
     | "Uploaded"
@@ -274,7 +275,7 @@ export default function AuditsDashboard() {
               return (
                 <TableRow key={r.id} className="whitespace-nowrap">
                   <TableCell>{r.agentName}</TableCell>
-                  <TableCell>{format(dt, "dd MMM yyyy, HH:mm")}</TableCell>
+                  <TableCell>{r.callDate ? format(new Date(r.callDate), "dd MMM yyyy") : format(dt, "dd MMM yyyy, HH:mm")}</TableCell>
                   <TableCell>{r.status}</TableCell>
                   <TableCell>{r.c1}</TableCell>
                   <TableCell>{r.c2}</TableCell>
