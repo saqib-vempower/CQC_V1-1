@@ -115,8 +115,9 @@ export default function AuditsDashboard() {
   const [lastDoc, setLastDoc] = React.useState<any>(null);
   const [hasMore, setHasMore] = React.useState(true);
 
-  // Details sheet
-  const [openId, setOpenId] = React.useState<string | null>(null);
+  // Details sheets
+  const [openTranscriptId, setOpenTranscriptId] = React.useState<string | null>(null); // Renamed for clarity
+  const [openImprovementTipsId, setOpenImprovementTipsId] = React.useState<string | null>(null); // New state for improvement tips
 
   const buildQuery = React.useCallback(
     async (isNextPage = false) => {
@@ -146,7 +147,10 @@ export default function AuditsDashboard() {
         const snap = await getDocs(q);
   
         const docs = snap.docs.map(
-          (d) => ({ id: d.id, ...d.data() } as unknown as AuditRow)
+          (d) => {
+            console.log("Raw Firestore Data:", d.data()); // Added console.log
+            return { id: d.id, ...d.data() } as unknown as AuditRow;
+          }
         );
   
         if (isNextPage) setRows((prev) => [...prev, ...docs]);
@@ -253,7 +257,7 @@ export default function AuditsDashboard() {
               <TableHead>C10 Score</TableHead>
               <TableHead>Total CQ Score</TableHead>
               <TableHead className="min-w-[240px]">Improvement tips</TableHead>
-              <TableHead className="sticky right-0 bg-background z-10">Details</TableHead>
+              <TableHead className="sticky right-0 bg-background z-10">Transcript Details</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -283,11 +287,39 @@ export default function AuditsDashboard() {
                   <TableCell>{r.c9}</TableCell>
                   <TableCell>{r.c10}</TableCell>
                   <TableCell className="font-semibold">{r.finalCqScore}</TableCell>
-                  <TableCell title={r.improvementTips} className="whitespace-pre-wrap max-w-xs">{truncate(r.improvementTips, 120)}</TableCell>
+                  <TableCell>
+                    <Sheet
+                      open={openImprovementTipsId === r.id}
+                      onOpenChange={(o) => setOpenImprovementTipsId(o ? r.id : null)}
+                    >
+                      <SheetTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          Details
+                        </Button>
+                      </SheetTrigger>
+                      <SheetContent
+                        side="right"
+                        className="w-[700px] sm:w-[760px] md:w-[880px] overflow-y-auto"
+                      >
+                        <SheetHeader>
+                          <SheetTitle>
+                            Improvement Tips — {r.university} / {r.domain}
+                          </SheetTitle>
+                        </SheetHeader>
+                        <div className="mt-4 space-y-2 whitespace-pre-wrap">
+                          {r.improvementTips || (
+                            <p className="text-sm text-muted-foreground">
+                              No improvement tips available.
+                            </p>
+                          )}
+                        </div>
+                      </SheetContent>
+                    </Sheet>
+                  </TableCell>
                   <TableCell className="sticky right-0 bg-background z-10">
                     <Sheet
-                      open={openId === r.id}
-                      onOpenChange={(o) => setOpenId(o ? r.id : null)}
+                      open={openTranscriptId === r.id}
+                      onOpenChange={(o) => setOpenTranscriptId(o ? r.id : null)}
                     >
                       <SheetTrigger asChild>
                         <Button variant="outline" size="sm">

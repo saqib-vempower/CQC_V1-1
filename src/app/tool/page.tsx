@@ -12,7 +12,7 @@ import withAuthorization from '@/components/withAuthorization';
 import { useAuth } from '@/context/AuthContext';
 import { getFirebaseServices } from '@/lib/firebase-client';
 import { ref, uploadBytes } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { PageLayout } from '@/components/ui/PageLayout';
 
 const universityOptions = [
@@ -94,41 +94,53 @@ function ToolPage() {
     const { storage, db } = getFirebaseServices();
     const filesArray = Array.from(files);
     const totalFiles = filesArray.length;
-    setStatusMessage(`Uploading ${uploadProgress} of ${totalFiles} files...`);
+    setStatusMessage(`Uploading 0 of ${totalFiles} files...`); // Initial message for uploading
 
     try {
       const uploadPromises = filesArray.map(async (file, index) => {
         const [agentName, applicantId] = file.name.replace('.mp3', '').split('_');
-        const uniqueFilename = `${agentName}_${applicantId}_${Date.now()}.mp3`;
-        const storagePath = `audits/${uniqueFilename}`;
+
+        const newAuditDocRef = await addDoc(collection(db, 'audits'), {
+          agentName,
+          applicantId,
+          university,
+          domain,
+          callType,
+          callDate: callDate || null,
+          originalFilename: file.name,
+          status: 'Uploading', // Client-side status update
+          createdAt: serverTimestamp(),
+          uploadedBy: user.email,
+        });
+        const auditId = newAuditDocRef.id;
+
+        const uniqueFilenameWithId = `${auditId}-${agentName}_${applicantId}_${Date.now()}.mp3`;
+        const storagePath = `audits/${uniqueFilenameWithId}`;
+
         const storageRef = ref(storage, storagePath);
 
         await uploadBytes(storageRef, file);
-        
-        await addDoc(collection(db, 'audits'), {
-          agentName, applicantId, university, domain, callType,
-          callDate: callDate || null,
-          originalFilename: file.name,
-          storagePath, status: 'Uploaded',
-          createdAt: serverTimestamp(),
-          uploadedBy: user.email,
+
+        await updateDoc(newAuditDocRef, {
+          storagePath: storagePath,
+          status: 'Uploaded', // Client-side status update
         });
 
         const newProgress = index + 1;
         setUploadProgress(newProgress);
-        setStatusMessage(`Uploading ${newProgress} of ${totalFiles} files...`);
+        setStatusMessage(`Uploaded ${newProgress} of ${totalFiles} files...`);
       });
 
       await Promise.all(uploadPromises);
 
       setStatus('success');
-      setStatusMessage(`${totalFiles} file(s) uploaded successfully!`);
+      setStatusMessage(`${totalFiles} file(s) uploaded successfully! Processing will continue in the background.`);
       resetForm();
 
     } catch (err) {
-      console.error("Upload failed:", err);
+      console.error("Upload process failed:", err);
       setStatus('error');
-      setStatusMessage('An error occurred during the upload. Please try again.');
+      setStatusMessage('Upload Error: An error occurred during the upload. Please try again.'); // Specific error message
     }
   };
   

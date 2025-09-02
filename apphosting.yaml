@@ -13,7 +13,7 @@ runConfig:
 env:
   # Configure environment variables.
   # See https://firebase.google.com/docs/app-hosting/configure#user-defined-environment
-  - variable: FIREBASE_WEBAPP_CONFIG
+  - variable: NEXT_PUBLIC_FIREBASE_WEBAPP_CONFIG
     # IMPORTANT: Replace this placeholder with your actual Firebase Web App Config JSON.
     # You can find this in your Firebase Project Settings under "Your apps".
     # It should be a single-line JSON string, for example:

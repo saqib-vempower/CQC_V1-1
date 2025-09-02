@@ -20,7 +20,7 @@ export function getFirebaseServices(): FirebaseServices {
 
   let app: FirebaseApp;
   if (!getApps().length) {
-    const firebaseConfigString = process.env.FIREBASE_WEBAPP_CONFIG;
+    const firebaseConfigString = process.env.NEXT_PUBLIC_FIREBASE_WEBAPP_CONFIG;
     if (firebaseConfigString) {
       const firebaseConfig = JSON.parse(firebaseConfigString);
       app = initializeApp(firebaseConfig);
