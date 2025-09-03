@@ -69,13 +69,22 @@ export const onAiTranscripting = onRequest(
           return;
         }
 
-        await auditRef.update({
-          status: "Auditing", // Change to Auditing to trigger next function
+        const transcriptRef = db.collection("transcripts").doc(transcript_id);
+        const batch = db.batch();
+
+        batch.set(transcriptRef, {
           transcript: transcriptText,
           utterances: utterances || [],
           transcribedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        logger.info(`Audit ${auditId} status updated to 'Auditing' with transcript.`);
+
+        batch.update(auditRef, {
+          status: "Transcribed",
+        });
+
+        await batch.commit();
+
+        logger.info(`Audit ${auditId} status updated to 'Transcribed' and transcript ${transcript_id} saved.`);
         res.status(200).send("Webhook received successfully, transcript fetched and saved.");
       } else if (status === "error") {
         logger.error(`AssemblyAI reported an error for transcript ${transcript_id}:`, req.body.error);

@@ -1,48 +1,70 @@
 // _firebase/functions/src/audit-pipeline/calculator.ts
-import {onDocumentUpdated} from "firebase-functions/v2/firestore";
-import * as logger from "firebase-functions/logger";
+import {onDocumentUpdated, FirestoreEvent, Change, QueryDocumentSnapshot} from "firebase-functions/v2/firestore";
+import {logger} from "firebase-functions";
 import {db} from "../common";
+import {ScoreKey} from "../ai/responseSchema";
 
-type Score = number | "NA";
-interface Scores {
-  c1: Score; c2: Score; c3: Score; c4: Score; c5: Score;
-  c6: Score; c7: Score; c8: Score; c9: Score; c10: Score;
+// This function calculates the final weighted score based on the raw scores from the AI
+// and the weights defined in the rubric.
+function computeFinalScore(
+  scores: Record<ScoreKey, number | null>,
+  weights: Record<string, number>
+) {
+  let sumWeights = 0;
+  let sumPoints = 0;
+  (Object.keys(scores) as ScoreKey[]).forEach((k) => {
+    const v = scores[k];
+    if (typeof v === "number" && Number.isFinite(v)) {
+      const w = Number(weights[k] ?? 0);
+      sumWeights += w;
+      sumPoints += v;
+    }
+  });
+  if (sumWeights <= 0) return 0;
+  return Math.round((sumPoints / sumWeights) * 100);
 }
 
 export const onScored = onDocumentUpdated(
-  "audits/{auditId}",
-  async (event) => {
+  {
+    document: "audits/{auditId}",
+    region: "us-central1",
+  },
+  async (event: FirestoreEvent<Change<QueryDocumentSnapshot> | undefined, { auditId: string; }>) => {
     const auditId = event.params.auditId;
-    const afterData = event.data?.after.data();
-    const beforeData = event.data?.before.data();
-
-    if (afterData?.status !== "Scored" || beforeData?.status === "Scored") {
-      return;
-    }
+    const after = event.data?.after.data() as any;
 
     try {
-      const scores: Scores = {
-        c1: afterData.c1, c2: afterData.c2, c3: afterData.c3,
-        c4: afterData.c4, c5: afterData.c5, c6: afterData.c6,
-        c7: afterData.c7, c8: afterData.c8, c9: afterData.c9,
-        c10: afterData.c10,
-      };
+      if (!after || after.status !== "Scored") return;
 
-      const totalScore = Object.values(scores)
-        .filter((score) => typeof score === "number")
-        .reduce((sum, score) => sum + (score as number), 0);
+      // Load rubric v1.0
+      const rSnap = await db.collection("rubrics").doc("v1.0").get();
+      if (!rSnap.exists) {
+        throw new Error("Rubric v1.0 not found in Firestore (rubrics/v1.0). Please seed it first.");
+      }
+      const rubric = rSnap.data() as any;
 
-      const roundedTotalScore = parseFloat(totalScore.toFixed(2));
-      logger.info(`Calculated total score for audit ${auditId}: ${roundedTotalScore}`);
+      // Pre-compute weights { c1: 10, ... } (case-insensitive)
+      const weights: Record<string, number> = Object.fromEntries(
+        Object.entries(rubric?.criteria ?? {}).map(([k, v]: any) => [
+          String(k).toLowerCase(), Number(v?.weight ?? 0),
+        ])
+      );
 
-      await db.collection("audits").doc(auditId).update({
+      const finalCqScore = computeFinalScore(after.scores, weights);
+
+      await db.collection("audits").doc(auditId).set({
+        finalCqScore,
         status: "Completed",
-        finalCqScore: roundedTotalScore,
-      });
-      logger.info(`Audit ${auditId} successfully completed and updated in Firestore.`);
-    } catch (error) {
-      logger.error(`Error during score calculation for ${auditId}:`, error);
-      await db.collection("audits").doc(auditId).update({status: "Scoring Error", error: `Scoring Error: ${(error as Error).message}`});
+        updatedAt: new Date(),
+      }, {merge: true});
+      logger.info(`[audit:${auditId}] Marked as completed.`);
+    } catch (e) {
+      logger.error(`[audit:${auditId}] Calculator failed: ${String(e)}`);
+      await db.collection("audits").doc(auditId).set({
+        status: "Failed",
+        error: {message: String(e)},
+        updatedAt: new Date(),
+      }, {merge: true});
     }
-  },
+  }
 );

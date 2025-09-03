@@ -1,26 +1,20 @@
 {
   "functions": {
-    "source": "_firebase/functions",
-    "runtime": "nodejs20",
-    "predeploy": [
-      "npm --prefix \"$RESOURCE_DIR\" run lint",
-      "npm --prefix \"$RESOURCE_DIR\" run build"
-    ]
+    "predeploy": "npm --prefix \"$RESOURCE_DIR\" run build",
+    "source": "_firebase/functions"
   },
-  "firestore": {
-    "rules": "firestore.rules"
+  "hosting": {
+    "source": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
   },
   "storage": {
     "rules": "storage.rules"
   },
-  "apphosting": {
-    "backendId": "ssrcallqualitycompassxb",
-    "region": "us-central1",
-    "cloudFunctions": [
-      "onCallUpload",
-      "onAiTranscripting",
-      "onAiAuditing",
-      "onLogin"
-    ]
+  "firestore": {
+    "rules": "firestore.rules"
   }
 }

@@ -8,8 +8,10 @@
     "sourceMap": true,
     "strict": true,
     "target": "es2017",
+    "lib": ["es2022", "dom"],
     "esModuleInterop": true,
     "resolveJsonModule": true,
+    "useUnknownInCatchVariables": false,
     "typeRoots": ["node_modules/@types", "./node_modules/@types"]
   },
   "compileOnSave": true,

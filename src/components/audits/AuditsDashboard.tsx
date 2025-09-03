@@ -131,17 +131,16 @@ export default function AuditsDashboard() {
   
         if (university !== "all") constraints.push(where("university", "==", university));
         if (domain !== "all") constraints.push(where("domain", "==", domain));
-        if (dateFrom) constraints.push(where("createdAt", ">=", dateFrom));
-        if (dateTo) constraints.push(where("createdAt", "<=", dateTo));
+        if (dateFrom) constraints.push(where("callDate", ">=", format(dateFrom, "yyyy-MM-dd")));
+        if (dateTo) constraints.push(where("callDate", "<=", format(dateTo, "yyyy-MM-dd")));
   
-        // Add orderBy clauses
-        if (university !== "all" || domain !== "all" || dateFrom || dateTo) {
-          constraints.push(orderBy("university"));
-          constraints.push(orderBy("domain"));
-          constraints.push(orderBy("createdAt", "desc"));
-        } else {
-          constraints.push(orderBy("createdAt", "desc"));
-        }
+        // Always include orderBy clauses in a consistent order to support composite indexing.
+        // The order of these orderBy clauses should match the composite index definition.
+        // This specific order (university, domain, callDate desc) is chosen to support
+        // filtering on any combination of these fields while consistently sorting by call date.
+        constraints.push(orderBy("university")); // Ascending order
+        constraints.push(orderBy("domain"));   // Ascending order
+        constraints.push(orderBy("callDate", "desc")); // Descending order
   
         if (isNextPage && lastDoc) constraints.push(startAfter(lastDoc));
         constraints.push(limit(PAGE_SIZE));
@@ -163,7 +162,7 @@ export default function AuditsDashboard() {
         setHasMore(snap.size === PAGE_SIZE);
       } catch (error: any) {
         if (error.code === 'failed-precondition') {
-          console.error("Query failed. The query requires an index. Please create it in your Firebase console.", error.toString());
+          console.error("Query failed. The query requires an index. Please create it in your Firebase console. The recommended index for this query is on 'audits' collection with fields 'university (asc)', 'domain (asc)', 'callDate (desc)'.", error.toString());
           // Clear the rows to indicate that the query failed
           setRows([]);
         } else {
