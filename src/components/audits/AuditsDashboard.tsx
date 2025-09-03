@@ -50,6 +50,7 @@ type AuditRow = {
   id: string;
   university: string;
   domain: string;
+  callType?: string;
   agentName?: string;
   applicantId?: string;
   callDate?: string; // Added callDate
@@ -61,16 +62,16 @@ type AuditRow = {
     | "Completed"
     | "Auditing Failed"
     | "Transcription Failed";
-  c1: number;
-  c2: number;
-  c3: number;
-  c4: number;
-  c5: number;
-  c6: number;
-  c7: number;
-  c8: number;
-  c9: number;
-  c10: number;
+  c1: number | string;
+  c2: number | string;
+  c3: number | string;
+  c4: number | string;
+  c5: number | string;
+  c6: number | string;
+  c7: number | string;
+  c8: number | string;
+  c9: number | string;
+  c10: number | string;
   finalCqScore: number;
   summary: string;
   improvementTips: string;
@@ -260,6 +261,9 @@ export default function AuditsDashboard() {
               <TableHead>Total CQ Score</TableHead>
               <TableHead className="min-w-[240px]">Improvement tips</TableHead>
               <TableHead>App / Ref ID</TableHead>
+              <TableHead>University Name</TableHead>
+              <TableHead>Call Domain</TableHead>
+              <TableHead>Call Type</TableHead>
               <TableHead className="sticky right-0 bg-background z-10">Transcript Details</TableHead>
             </TableRow>
           </TableHeader>
@@ -320,6 +324,9 @@ export default function AuditsDashboard() {
                     </Sheet>
                   </TableCell>
                   <TableCell>{r.applicantId}</TableCell>
+                  <TableCell>{r.university}</TableCell>
+                  <TableCell>{r.domain}</TableCell>
+                  <TableCell>{r.callType}</TableCell>
                   <TableCell className="sticky right-0 bg-background z-10">
                     <Sheet
                       open={openTranscriptId === r.id}

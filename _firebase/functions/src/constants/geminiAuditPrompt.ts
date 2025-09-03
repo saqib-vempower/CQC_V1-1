@@ -8,7 +8,7 @@ ${JSON.stringify(rubric, null, 2)}
 INSTRUCTIONS:
 1) For EACH criterion C1..C10, evaluate the call and provide a score.
    - If there is enough information to score a criterion, the score should be an INTEGER from 0 to the 'Weight' of that criterion, reflecting its weighted score. Assume a raw evaluation is on a scale of 0-5, then calculate (raw_score / 5) * Weight and round to the nearest whole number.
-   - If a criterion is not applicable to the call (e.g., 'Handling Objections' when no objections were raised), the value for that criterion key MUST be the string "NA".
+   - If there is not enough data available to audit a criterion, meaning the criterion is not applicable to the call, the value for that criterion key MUST be the string "NA".
 2) All keys c1..c10 that are not "NA" MUST be numbers (not strings).
 3) Provide a concise "summary".
 4) Provide "improvementTips" in markdown format. For each area of improvement, create a bold heading (e.g., **Active Listening (C2):**). Under each heading, provide a bulleted list of specific, actionable tips. Each bullet point must start with an asterisk (*).
