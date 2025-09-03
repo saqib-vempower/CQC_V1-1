@@ -2,8 +2,21 @@
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 import {GoogleGenAI} from "@google/genai";
-import {GENAI_KEY, db, Scores} from "../common";
+import {GENAI_KEY, db} from "../common";
 import {generateGeminiAuditPrompt} from "../constants/geminiAuditPrompt";
+
+type Score = number | "NA";
+interface Scores {
+  c1: Score; c2: Score; c3: Score; c4: Score; c5: Score;
+  c6: Score; c7: Score; c8: Score; c9: Score; c10: Score;
+}
+
+interface AuditResult {
+  c1: Score; c2: Score; c3: Score; c4: Score; c5: Score;
+  c6: Score; c7: Score; c8: Score; c9: Score; c10: Score;
+  summary: string;
+  improvementTips: string;
+}
 
 export const onAiAuditing = onDocumentUpdated(
   {
@@ -54,24 +67,25 @@ export const onAiAuditing = onDocumentUpdated(
       }
 
       const jsonText = result.text.replace(/```json|```/g, "").trim();
-      const auditResult = JSON.parse(jsonText);
+      const auditResult: AuditResult = JSON.parse(jsonText);
       logger.info(`Gemini audit completed for ${auditId}.`);
 
+      const parseScore = (score: string | number | "NA"): Score => {
+        if (score === "NA") return "NA";
+        const num = parseFloat(score as string);
+        return isNaN(num) ? 0 : num;
+      };
+
       const scores: Scores = {
-        c1: Math.ceil(auditResult.c1 || 0),
-        c2: Math.ceil(auditResult.c2 || 0),
-        c3: Math.ceil(auditResult.c3 || 0),
-        c4: Math.ceil(auditResult.c4 || 0),
-        c5: Math.ceil(auditResult.c5 || 0),
-        c6: Math.ceil(auditResult.c6 || 0),
-        c7: Math.ceil(auditResult.c7 || 0),
-        c8: Math.ceil(auditResult.c8 || 0),
-        c9: Math.ceil(auditResult.c9 || 0),
-        c10: Math.ceil(auditResult.c10 || 0),
+        c1: parseScore(auditResult.c1), c2: parseScore(auditResult.c2),
+        c3: parseScore(auditResult.c3), c4: parseScore(auditResult.c4),
+        c5: parseScore(auditResult.c5), c6: parseScore(auditResult.c6),
+        c7: parseScore(auditResult.c7), c8: parseScore(auditResult.c8),
+        c9: parseScore(auditResult.c9), c10: parseScore(auditResult.c10),
       };
 
       await db.collection("audits").doc(auditId).update({
-        status: "Scored", // New status
+        status: "Scored",
         ...scores,
         summary: auditResult.summary || "",
         improvementTips: auditResult.improvementTips || "",

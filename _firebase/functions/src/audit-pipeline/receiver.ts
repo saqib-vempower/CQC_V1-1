@@ -53,6 +53,9 @@ export const onAiTranscripting = onRequest(
         const fullTranscript = await client.transcripts.get(transcript_id);
         logger.info("Full transcript fetched from AssemblyAI.", {status: fullTranscript.status, textLength: fullTranscript.text?.length});
 
+        // Log the full transcript response for debugging
+        logger.debug("Full transcript response:", JSON.stringify(fullTranscript, null, 2));
+
         const transcriptText = fullTranscript.text;
         const utterances = fullTranscript.utterances;
 

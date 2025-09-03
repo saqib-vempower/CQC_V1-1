@@ -51,6 +51,7 @@ type AuditRow = {
   university: string;
   domain: string;
   agentName?: string;
+  applicantId?: string;
   callDate?: string; // Added callDate
   createdAt?: Timestamp | { seconds: number; nanoseconds: number } | Date;
   status:
@@ -258,6 +259,7 @@ export default function AuditsDashboard() {
               <TableHead>C10 Score</TableHead>
               <TableHead>Total CQ Score</TableHead>
               <TableHead className="min-w-[240px]">Improvement tips</TableHead>
+              <TableHead>App / Ref ID</TableHead>
               <TableHead className="sticky right-0 bg-background z-10">Transcript Details</TableHead>
             </TableRow>
           </TableHeader>
@@ -317,6 +319,7 @@ export default function AuditsDashboard() {
                       </SheetContent>
                     </Sheet>
                   </TableCell>
+                  <TableCell>{r.applicantId}</TableCell>
                   <TableCell className="sticky right-0 bg-background z-10">
                     <Sheet
                       open={openTranscriptId === r.id}

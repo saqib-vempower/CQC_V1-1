@@ -37,6 +37,35 @@ const callTypeOptions = [
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
+const parseFileName = (fileName: string) => {
+  const parts = fileName.replace('.mp3', '').split('_');
+  
+  // Slate format: AgentName_ApplicantId.mp3
+  if (parts.length === 2) {
+    return {
+      agentName: parts[0],
+      applicantId: parts[1],
+      callDate: null,
+    };
+  } 
+  
+  // Verve format: University_Agent_..._YYYYMMDD_..._MediaID_...mp3
+  // Example: slu_Ismat_11268_7509632291_1753177405492_20250801_120319_AD080120251203123584_7509632291.mp3
+  if (parts.length > 8) {
+    const agentName = parts[1]; // 2nd token
+    const yyyymmdd = parts[5]; // 6th token
+    const applicantId = parts[7]; // 8th token
+    
+    // Format YYYYMMDD to YYYY-MM-DD for the date input
+    const formattedDate = `${yyyymmdd.substring(0, 4)}-${yyyymmdd.substring(4, 6)}-${yyyymmdd.substring(6, 8)}`;
+
+    return { agentName, applicantId, callDate: formattedDate };
+  }
+
+  return null; // Invalid format
+};
+
+
 function ToolPage() {
   const { user } = useAuth();
   const [university, setUniversity] = useState('');
@@ -64,14 +93,26 @@ function ToolPage() {
     if (selectedFiles) {
       setStatus('idle');
       setStatusMessage('');
-      const fileNameRegex = /^[a-zA-Z0-9]+_[a-zA-Z0-9]+\.mp3$/;
+      
+      let extractedDate: string | null = null;
+
       for (let i = 0; i < selectedFiles.length; i++) {
-        if (!fileNameRegex.test(selectedFiles[i].name)) {
+        const parsedData = parseFileName(selectedFiles[i].name);
+        if (!parsedData) {
           setStatus('error');
-          setStatusMessage(`Invalid file name: ${selectedFiles[i].name}. Expected AgentName_ApplicantID.mp3`);
+          setStatusMessage(`Invalid file name: ${selectedFiles[i].name}. Please use a supported format.`);
           setFiles(null);
           return;
         }
+
+        // If date is not manually set and we find a date in a Verve file, use it.
+        if (!callDate && parsedData.callDate && !extractedDate) {
+            extractedDate = parsedData.callDate;
+        }
+      }
+
+      if (extractedDate) {
+        setCallDate(extractedDate);
       }
       setFiles(selectedFiles);
     }
@@ -94,11 +135,17 @@ function ToolPage() {
     const { storage, db } = getFirebaseServices();
     const filesArray = Array.from(files);
     const totalFiles = filesArray.length;
-    setStatusMessage(`Uploading 0 of ${totalFiles} files...`); // Initial message for uploading
+    setStatusMessage(`Uploading 0 of ${totalFiles} files...`);
 
     try {
       const uploadPromises = filesArray.map(async (file, index) => {
-        const [agentName, applicantId] = file.name.replace('.mp3', '').split('_');
+        const parsedData = parseFileName(file.name);
+        if (!parsedData) {
+          // This check is redundant due to handleFileChange but good for safety
+          throw new Error(`Skipping invalid file: ${file.name}`);
+        }
+
+        const { agentName, applicantId } = parsedData;
 
         const newAuditDocRef = await addDoc(collection(db, 'audits'), {
           agentName,
@@ -108,7 +155,7 @@ function ToolPage() {
           callType,
           callDate: callDate || null,
           originalFilename: file.name,
-          status: 'Uploading', // Client-side status update
+          status: 'Uploading',
           createdAt: serverTimestamp(),
           uploadedBy: user.email,
         });
@@ -123,7 +170,7 @@ function ToolPage() {
 
         await updateDoc(newAuditDocRef, {
           storagePath: storagePath,
-          status: 'Uploaded', // Client-side status update
+          status: 'Uploaded',
         });
 
         const newProgress = index + 1;
@@ -140,7 +187,7 @@ function ToolPage() {
     } catch (err) {
       console.error("Upload process failed:", err);
       setStatus('error');
-      setStatusMessage('Upload Error: An error occurred during the upload. Please try again.'); // Specific error message
+      setStatusMessage('Upload Error: An error occurred during the upload. Please try again.');
     }
   };
   
@@ -193,15 +240,20 @@ function ToolPage() {
               <div className="grid gap-2">
                 <Label htmlFor="call-date">Date of Call (Optional)</Label>
                 <Input id="call-date" type="date" value={callDate} onChange={e => setCallDate(e.target.value)} />
+                <p className="text-sm text-gray-500">Do not select any date for files from Contaque Verve</p>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="call-files">Call Recording Files</Label>
                 <Input id="call-files" type="file" accept=".mp3,audio/mpeg" multiple onChange={handleFileChange} />
-                <p className="text-sm text-gray-500">File naming format: AgentName_ApplicantID.mp3</p>
+                <p className="text-sm text-gray-500" style={{ lineHeight: '1.5' }}>
+                  Supported: <br />
+                  From Slate: AgentName_ApplicantID.mp3 <br />
+                  From Contaque Verve: UniversitySlug_AgentName_InternalID_Phone_EpochMS_YYYYMMDD_HHMMSS_MediaID_Phone.mp3
+                </p>
               </div>
             </div>
           </fieldset>
-          
+
           {getStatusChip()}
 
           <div className="mt-4 grid grid-cols-1 gap-2">

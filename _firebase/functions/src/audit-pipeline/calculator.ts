@@ -1,7 +1,13 @@
 // _firebase/functions/src/audit-pipeline/calculator.ts
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
-import {db, Scores} from "../common";
+import {db} from "../common";
+
+type Score = number | "NA";
+interface Scores {
+  c1: Score; c2: Score; c3: Score; c4: Score; c5: Score;
+  c6: Score; c7: Score; c8: Score; c9: Score; c10: Score;
+}
 
 export const onScored = onDocumentUpdated(
   "audits/{auditId}",
@@ -16,13 +22,16 @@ export const onScored = onDocumentUpdated(
 
     try {
       const scores: Scores = {
-        c1: afterData.c1 || 0, c2: afterData.c2 || 0, c3: afterData.c3 || 0,
-        c4: afterData.c4 || 0, c5: afterData.c5 || 0, c6: afterData.c6 || 0,
-        c7: afterData.c7 || 0, c8: afterData.c8 || 0, c9: afterData.c9 || 0,
-        c10: afterData.c10 || 0,
+        c1: afterData.c1, c2: afterData.c2, c3: afterData.c3,
+        c4: afterData.c4, c5: afterData.c5, c6: afterData.c6,
+        c7: afterData.c7, c8: afterData.c8, c9: afterData.c9,
+        c10: afterData.c10,
       };
 
-      const totalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);
+      const totalScore = Object.values(scores)
+        .filter((score) => typeof score === "number")
+        .reduce((sum, score) => sum + (score as number), 0);
+
       const roundedTotalScore = parseFloat(totalScore.toFixed(2));
       logger.info(`Calculated total score for audit ${auditId}: ${roundedTotalScore}`);
 

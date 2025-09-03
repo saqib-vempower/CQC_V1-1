@@ -5,12 +5,12 @@ interface PageCardLayoutProps {
   title: string;
   description: string;
   children: React.ReactNode;
-  headerContent?: React.ReactNode; // Optional prop for extra header content like buttons
+  headerContent?: React.ReactNode; 
 }
 
 export function PageCardLayout({ title, description, children, headerContent }: PageCardLayoutProps) {
   return (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className="mx-auto w-full max-w-4xl">
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start">
