@@ -1,24 +1,18 @@
-# Settings for Backend (on Cloud Run).
-# See https://firebase.google.com/docs/app-hosting/configure#cloud-run
-backendId: ssrcallqualitycompassxb
+# Docs: https://firebase.google.com/docs/app-hosting/apphosting-yaml
+backendId: callqualityapp
 location: us-central1
+# Specifies the commands that App Hosting runs to build and serve your app.
 runConfig:
-  minInstances: 0
-  # maxInstances: 100
-  # concurrency: 80
-  # cpu: 1
-  # memoryMiB: 512
+  # The command to build your app.
+  # This command is run before `npm start` and `npm run serve`.
+  # Optional.
+  build: npm run build
 
-# Environment variables and secrets.
+  # The command to run your app in production.
+  # Required.
+  start: npm run start
 env:
-  # Configure environment variables.
-  # See https://firebase.google.com/docs/app-hosting/configure#user-defined-environment
   - variable: NEXT_PUBLIC_FIREBASE_WEBAPP_CONFIG
-    # IMPORTANT: Replace this placeholder with your actual Firebase Web App Config JSON.
-    # You can find this in your Firebase Project Settings under "Your apps".
-    # It should be a single-line JSON string, for example:
-    # value: '{"apiKey":"AIza...","authDomain":"...",...}'
-    value: '{"apiKey":"AIzaSyA_ExJ7kmlhAUXDXp1CgE6nJA4e2Wo4J58","authDomain":"call-quality-compass-xbtu3.firebaseapp.com","projectId":"call-quality-compass-xbtu3","storageBucket":"call-quality-compass-xbtu3.firebasestorage.app","messagingSenderId":"975409597147","appId":"1:975409597147:web:740ccd0e5fd9f67d1f1afe"}'
-    availability:
-      - BUILD
-      - RUNTIME
+    value: ${FIREBASE_APP_CONFIG}
+concurrency: 80
+minInstances: 0

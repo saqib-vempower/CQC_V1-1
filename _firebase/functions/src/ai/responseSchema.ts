@@ -1,32 +1,35 @@
 // _firebase/functions/src/ai/responseSchema.ts
+// This schema defines the expected structure of the JSON response from the Gemini API.
+// It is formatted in a simplified OpenAPI/JSON Schema style that the Gemini API's
+// `response_schema` field expects when `response_mime_type` is set to `application/json`.
+// Keywords like `additionalProperties`, `anyOf` are not supported directly here and are removed.
+
 export const geminiAuditResponseSchema = {
   type: "object",
-  additionalProperties: false,
   required: ["scores", "summary", "improvementTips", "na"],
   properties: {
     scores: {
       type: "object",
-      additionalProperties: false,
       required: ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9", "c10"],
       properties: {
-        c1: {anyOf: [{type: "integer"}, {type: "null"}]},
-        c2: {anyOf: [{type: "integer"}, {type: "null"}]},
-        c3: {anyOf: [{type: "integer"}, {type: "null"}]},
-        c4: {anyOf: [{type: "integer"}, {type: "null"}]},
-        c5: {anyOf: [{type: "integer"}, {type: "null"}]},
-        c6: {anyOf: [{type: "integer"}, {type: "null"}]},
-        c7: {anyOf: [{type: "integer"}, {type: "null"}]},
-        c8: {anyOf: [{type: "integer"}, {type: "null"}]},
-        c9: {anyOf: [{type: "integer"}, {type: "null"}]},
-        c10: {anyOf: [{type: "integer"}, {type: "null"}]},
+        c1: {type: "number", nullable: true}, // Using nullable: true for number or null
+        c2: {type: "number", nullable: true},
+        c3: {type: "number", nullable: true},
+        c4: {type: "number", nullable: true},
+        c5: {type: "number", nullable: true},
+        c6: {type: "number", nullable: true},
+        c7: {type: "number", nullable: true},
+        c8: {type: "number", nullable: true},
+        c9: {type: "number", nullable: true},
+        c10: {type: "number", nullable: true},
       },
     },
     na: {
       type: "array",
-      items: {type: "string", pattern: "^c(10|[1-9])$"},
+      items: {type: "string"}, // Simplified item definition
     },
-    summary: {type: "string", minLength: 1},
-    improvementTips: {type: "string", minLength: 1},
+    summary: {type: "string"},
+    improvementTips: {type: "string"},
   },
 } as const;
 

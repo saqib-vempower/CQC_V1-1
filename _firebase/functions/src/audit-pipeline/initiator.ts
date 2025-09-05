@@ -18,9 +18,8 @@ export const onCallUpload = onObjectFinalized(
 
     if (!process.env.ASSEMBLYAI_API_KEY) {
       logger.error("ASSEMBLYAI_API_KEY secret is not loaded.");
-      // Update Firestore with specific error status before throwing
-      const filePath = event.data.name; // Get filePath for error reporting
-      const auditId = filePath.split("/")[1]?.split("-")[0]; // Attempt to extract auditId
+      const filePath = event.data.name;
+      const auditId = filePath.split("/")[1]?.split("-")[0];
       if (auditId) {
         await db.collection("audits").doc(auditId).update({
           status: "Transcribing Error",
@@ -38,7 +37,6 @@ export const onCallUpload = onObjectFinalized(
       return;
     }
 
-    // Extract auditId from filePath: audits/{auditId}-{rest_of_filename}.mp3
     const filePathParts = filePath.split("/");
     let auditId = "";
     if (filePathParts.length > 1) {
@@ -51,46 +49,19 @@ export const onCallUpload = onObjectFinalized(
 
     if (!auditId) {
       logger.error(`auditId could not be extracted from filePath: ${filePath}. Aborting process.`);
-      // Attempt to update Firestore for this error case as well
-      try {
-        // Since we don't have a reliable auditId, we can't update a specific document.
-        // A more robust solution might involve logging to a separate error collection or a dead-letter queue.
-        // For now, we'll just log and abort.
-      } catch (dbError) {
-        logger.error("Failed to log auditId extraction error to Firestore:", dbError);
-      }
       return;
     }
     logger.info(`Found auditId: ${auditId} parsed from filePath.`);
 
+    const auditDocRef = db.collection("audits").doc(auditId);
+
     try {
-      const auditDocRef = db.collection("audits").doc(auditId);
-      const auditDoc = await auditDocRef.get();
-
-      if (!auditDoc.exists) {
-        logger.error(`Firestore document for auditId ${auditId} not found. Aborting.`);
-        return;
-      }
-
-      const auditData = auditDoc.data();
-      logger.info(`Fetched auditData from Firestore for ${auditId}:`, auditData);
-
-      const university = auditData?.university || "Unknown";
-      const domain = auditData?.domain || "Unknown";
-      const callType = auditData?.callType || "Unknown";
-      const callDate = auditData?.callDate || null;
-      const originalFilename = auditData?.originalFilename || "Unknown";
-      const uploadedBy = auditData?.uploadedBy || "Unknown";
-      const agentName = auditData?.agentName || "Unknown";
-      const applicantId = auditData?.applicantId || "Unknown";
-
-      logger.info(`Processing audit for: ID=${auditId}, University=${university}, Domain=${domain}, CallType=${callType}, Agent=${agentName}, Applicant=${applicantId}, OriginalFile=${originalFilename}, UploadedBy=${uploadedBy}, CallDate=${callDate}`);
-
       await auditDocRef.update({
         storagePath: filePath,
         status: "Uploaded",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      logger.info(`Successfully updated audit document ${auditId} with metadata fetched from Firestore and confirmed 'Uploaded' status.`);
+      logger.info(`Successfully updated audit document ${auditId} to 'Uploaded'.`);
 
       const file = storage.bucket(bucketName).file(filePath);
       const expires = Date.now() + 60 * 60 * 1000; // 1 hour
@@ -103,9 +74,13 @@ export const onCallUpload = onObjectFinalized(
       const client = new AssemblyAI({apiKey: process.env.ASSEMBLYAI_API_KEY});
       const projectId = admin.app().options.projectId;
       const webhookUrl = `https://us-central1-${projectId}.cloudfunctions.net/onAiTranscripting?auditId=${auditId}`;
-      logger.info(`Webhook URL is: ${webhookUrl}`);
+      
+      await auditDocRef.update({
+        status: "Transcribing",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      logger.info(`Submitting transcript to AssemblyAI for audit ${auditId}.`);
 
-      logger.info("Submitting transcript to AssemblyAI...");
       const transcript = await client.transcripts.create({
         audio_url: signedUrl,
         speaker_labels: true,
@@ -113,33 +88,24 @@ export const onCallUpload = onObjectFinalized(
         webhook_auth_header_name: "x-webhook-secret",
         webhook_auth_header_value: process.env.ASSEMBLYAI_WEBHOOK_SECRET,
       });
-      logger.info(`Successfully submitted transcript to AssemblyAI. Transcript ID: ${transcript.id}`);
 
-      logger.info(`Updating audit document ${auditId} to 'Transcribing'.`);
       await auditDocRef.update({
-        status: "Transcribing",
         transcriptId: transcript.id,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      logger.info(`Successfully updated audit document ${auditId} to 'Transcribing'.`);
+      logger.info(`Successfully submitted transcript to AssemblyAI. Transcript ID: ${transcript.id}`);
     } catch (error) {
       logger.error(`[Critical Failure] Failed to submit transcript for audit ${auditId} on file ${filePath}:`, error);
-
-      let errorMessage = "An unknown error occurred while submitting to AssemblyAI.";
+      let errorMessage = "An unknown error occurred during transcription submission.";
       if (error instanceof Error) {
-        errorMessage = `Transcribing Error: ${error.message}`; // Specific error message
-        logger.error("Error details:", {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        });
+        errorMessage = `Transcribing Error: ${error.message}`;
       }
-
       try {
-        await db.collection("audits").doc(auditId).update({
-          status: "Transcribing Error", // Specific error status
+        await auditDocRef.update({
+          status: "Transcribing Error",
           error: errorMessage,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        logger.info(`Updated audit document ${auditId} to 'Transcribing Error' with the specific error.`);
       } catch (dbError) {
         logger.error(`Failed to update Firestore document ${auditId} with error status:`, dbError);
       }

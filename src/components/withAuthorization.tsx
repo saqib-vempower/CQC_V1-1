@@ -17,6 +17,7 @@ const withAuthorization = <P extends object>(
   const ComponentWithAuth = (props: P) => {
     const { user, userRole, loading } = useAuth();
     const router = useRouter();
+    const [isAuthorized, setIsAuthorized] = React.useState(false);
 
     React.useEffect(() => {
       if (!loading) {
@@ -31,12 +32,14 @@ const withAuthorization = <P extends object>(
             // If user exists but has no role, redirect to login with an error
             // (This is a failsafe for incomplete user profiles)
             router.replace('/login');
+        } else {
+          setIsAuthorized(true);
         }
       }
     }, [user, userRole, loading, router]);
 
     // While loading, or if user is not authorized, render a loading state or nothing
-    if (loading || !user || !userRole || !allowedRoles.includes(userRole)) {
+    if (!isAuthorized) {
       return (
         <div className="flex items-center justify-center min-h-screen">
           <p>Loading...</p>

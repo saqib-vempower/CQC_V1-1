@@ -1,7 +1,10 @@
 [
   {
-    "origin": ["https://call-quality-compass-xbtu3.web.app"],
-    "method": ["GET", "POST", "OPTIONS"],
+    "origin": [
+      "https://call-quality-compass-xbtu3.web.app",
+      "https://callqualityapp--call-quality-compass-xbtu3.us-central1.hosted.app"
+    ],
+    "method": ["GET", "POST", "PUT", "OPTIONS"],
     "responseHeader": [
       "Content-Type",
       "Access-Control-Allow-Origin"

@@ -4,11 +4,14 @@ import * as logger from "firebase-functions/logger";
 import {db, AAI_WEBHOOK, AAI_KEY} from "../common";
 import {AssemblyAI} from "assemblyai";
 import * as admin from "firebase-admin";
+// Removed getStorage import as we're no longer using Cloud Storage for this
+
+// const storage = getStorage(); // Removed initialization
 
 export const onAiTranscripting = onRequest(
   {
     secrets: [AAI_WEBHOOK, AAI_KEY],
-    region: "us-central1", // Set region to match Firestore
+    region: "us-central1",
   },
   async (req, res) => {
     logger.info("AssemblyAI webhook body received:", req.body);
@@ -23,88 +26,112 @@ export const onAiTranscripting = onRequest(
       return;
     }
 
-    const {auditId} = req.query;
-    if (!auditId || typeof auditId !== "string") {
-      logger.error("Bad Request: Missing or invalid audit ID in query parameters.");
-      res.status(400).send("Bad Request: Missing or invalid audit ID.");
+    const {transcript_id: transcriptId, status} = req.body;
+    const auditId = req.query.auditId as string;
+
+    if (!auditId) {
+      logger.error("Audit ID is missing from the webhook URL query parameters.");
+      res.status(400).send("Bad Request: Audit ID is missing.");
       return;
     }
 
-    const {transcript_id, status} = req.body;
-    if (!transcript_id) {
-      res.status(400).send("Bad Request: Missing transcript ID in body.");
-      return;
-    }
+    const auditRef = db.collection("audits").doc(auditId);
 
     try {
-      const auditRef = db.collection("audits").doc(auditId);
       if (status === "completed") {
-        if (!process.env.ASSEMBLYAI_API_KEY) {
-          logger.error("ASSEMBLYAI_API_KEY secret is not loaded for onAiTranscripting.");
-          await auditRef.update({
-            status: "Transcribing Error", // Specific error status
-            error: "AssemblyAI API Key not available for transcript retrieval.",
-          });
-          res.status(500).send("Internal Server Error: API Key missing.");
-          return;
-        }
+        logger.info(`Fetching full transcript for ID: ${transcriptId}`);
         const client = new AssemblyAI({apiKey: process.env.ASSEMBLYAI_API_KEY});
-        logger.info(`Fetching full transcript for ID: ${transcript_id}`);
-        const fullTranscript = await client.transcripts.get(transcript_id);
-        logger.info("Full transcript fetched from AssemblyAI.", {status: fullTranscript.status, textLength: fullTranscript.text?.length});
+        const transcript = await client.transcripts.get(transcriptId);
 
-        // Log the full transcript response for debugging
-        logger.debug("Full transcript response:", JSON.stringify(fullTranscript, null, 2));
-
-        const transcriptText = fullTranscript.text;
-        const utterances = fullTranscript.utterances;
-
-        if (typeof transcriptText === "undefined" || transcriptText === null) {
-          logger.warn(`Transcript text is empty or undefined for transcript_id: ${transcript_id}. Setting status to Transcribing Error.`);
+        if (!transcript) {
+          logger.error(`Transcript with ID ${transcriptId} not found or returned empty.`);
           await auditRef.update({
-            status: "Transcribing Error", // Specific error status
-            error: "Transcript text was empty or not provided after retrieval.",
+            status: "Transcribing Error",
+            error: `Transcript with ID ${transcriptId} could not be fetched or was empty.`,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
-          res.status(200).send("Webhook received, but transcript text was missing after retrieval.");
+          res.status(404).send("Transcript not found.");
           return;
         }
 
-        const transcriptRef = db.collection("transcripts").doc(transcript_id);
+        logger.debug("Full transcript response:", transcript);
+
+        const transcriptText = transcript.text;
+        const fullUtterances = transcript.utterances; // Keep full utterances
+
+        if (!transcriptText || !fullUtterances || fullUtterances.length === 0) {
+          logger.error("Transcript text or utterances are unexpectedly missing or empty from the AssemblyAI response.");
+          await auditRef.update({
+            status: "Transcribing Error",
+            error: "Transcript text or utterances missing or empty from AssemblyAI response.",
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          res.status(400).send("Bad Request: Incomplete transcript data.");
+          return;
+        }
+
+        // --- Removed Cloud Storage saving logic ---
+        // The full utterances will now be saved directly to Firestore
+
+        const transcriptRef = db.collection("transcripts").doc(transcriptId);
         const batch = db.batch();
 
         batch.set(transcriptRef, {
-          transcript: transcriptText,
-          utterances: utterances || [],
-          transcribedAt: admin.firestore.FieldValue.serverTimestamp(),
+          auditId: auditId,
+          textSummary: transcriptText, 
+          utterances: fullUtterances, // Save full utterances directly to Firestore
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
         batch.update(auditRef, {
           status: "Transcribed",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
-        await batch.commit();
+        try {
+          await batch.commit();
+          logger.info(`Audit ${auditId} status updated to 'Transcribed' and transcript ${transcriptId} saved directly to Firestore.`);
+          res.status(200).send("Webhook received successfully, transcript fetched and saved.");
+        } catch (commitError) {
+          logger.error(`[Firestore Commit Failure] Error saving transcript ${transcriptId} for audit ${auditId}:`, commitError);
+          // Since you're seeing full transcripts in Firestore already, this catch might not trigger if that's the actual case.
+          // However, it's good to keep for robust error handling.
+          await auditRef.update({
+            status: "Transcribing Error",
+            error: `Firestore commit failed: ${(commitError as Error).message}`,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          res.status(500).send("Internal Server Error: Firestore commit failed.");
+          return;
+        }
 
-        logger.info(`Audit ${auditId} status updated to 'Transcribed' and transcript ${transcript_id} saved.`);
-        res.status(200).send("Webhook received successfully, transcript fetched and saved.");
       } else if (status === "error") {
-        logger.error(`AssemblyAI reported an error for transcript ${transcript_id}:`, req.body.error);
+        logger.error(`AssemblyAI reported an error for transcript ${transcriptId}:`, req.body.error);
         await auditRef.update({
-          status: "Transcribing Error", // Specific error status
+          status: "Transcribing Error",
           error: `AssemblyAI transcription failed: ${req.body.error}`,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         res.status(200).send("Error webhook acknowledged.");
       } else {
         logger.info(`Received AssemblyAI webhook with status: ${status}. Acknowledging.`);
-        // If we want to capture intermediate statuses like 'queued', 'processing', etc.
-        // We could update the Firestore status here if needed.
         res.status(200).send("Webhook acknowledged.");
       }
     } catch (error) {
-      logger.error(`Error processing webhook for audit ${auditId} and transcript ${transcript_id}:`, error);
-      await db.collection("audits").doc(auditId).update({
-        status: "Transcribing Error", // Specific error status
-        error: `Error during transcript retrieval: ${(error as Error).message}`,
-      });
+      logger.error(`[Critical Failure] Error processing webhook for audit ${auditId} and transcript ${transcriptId}:`, error);
+      let errorMessage = "An unknown error occurred during webhook processing.";
+      if (error instanceof Error) {
+        errorMessage = `Webhook processing failed: ${error.message}`;
+      }
+      try {
+        await auditRef.update({
+          status: "Transcribing Error",
+          error: errorMessage,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (dbError) {
+        logger.error(`Failed to update Firestore document ${auditId} with error status after a critical failure:`, dbError);
+      }
       res.status(500).send("Internal Server Error");
     }
   },

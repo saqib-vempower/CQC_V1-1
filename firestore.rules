@@ -20,5 +20,10 @@ service cloud.firestore {
         
       allow delete: if request.auth != null && request.auth.token.role == 'Admin';
     }
+
+    // Transcripts: Authenticated users can read
+    match /transcripts/{transcriptId} {
+      allow read: if request.auth != null;
+    }
   }
 }

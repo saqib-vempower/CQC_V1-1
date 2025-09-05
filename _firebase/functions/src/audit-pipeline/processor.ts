@@ -1,37 +1,63 @@
 // _firebase/functions/src/audit-pipeline/processor.ts
-import {onDocumentUpdated} from "firebase-functions/v2/firestore";
-import {logger} from "firebase-functions";
+import {onDocumentWritten} from "firebase-functions/v2/firestore";
+import * as logger from "firebase-functions/logger";
 import {db} from "../common";
+import {PubSub} from "@google-cloud/pubsub";
+import * as admin from "firebase-admin";
 
-export const onAiAuditing = onDocumentUpdated(
-  {
-    document: "audits/{auditId}",
-    region: "us-central1",
-  },
+const pubSubClient = new PubSub();
+
+export const onAiAuditing = onDocumentWritten(
+  "transcripts/{transcriptId}",
   async (event) => {
-    const auditId = event.params.auditId;
-    const after = event.data?.after.data() as any;
-    const before = event.data?.before.data() as any;
+    if (!event.data) {
+      logger.info("No data associated with the event. Exiting.");
+      return;
+    }
+
+    const transcriptData = event.data.after.data();
+    if (!transcriptData) {
+      logger.info("Event data is undefined. Exiting.");
+      return;
+    }
+
+    const {auditId} = transcriptData;
+    if (!auditId) {
+      logger.error(`Audit ID is missing in transcript document: ${event.params.transcriptId}`);
+      return;
+    }
+
+    logger.info(`'onAiAuditing' triggered for audit ID: ${auditId}`);
+    const auditRef = db.collection("audits").doc(auditId);
 
     try {
-      // Only run once when we have a transcript and haven't scored yet
-      if (!after || after.status !== "Transcribed") return;
-      if (before?.scores && after?.scores) return;
+      await auditRef.update({
+        status: "Auditing",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      logger.info(`Audit ${auditId} status updated to 'Auditing'.`);
 
-      // Set the status to "Scoring" to trigger the next step
-      await db.collection("audits").doc(auditId).set({
-        status: "Scoring",
-        updatedAt: new Date(),
-      }, {merge: true});
+      const topicName = "score-call";
+      const message = {
+        json: {
+          auditId: auditId,
+          transcriptId: event.params.transcriptId,
+        },
+      };
 
-      logger.info(`[audit:${auditId}] Status updated to Scoring.`);
-    } catch (err) {
-      logger.error(`[audit:${auditId}] Audit failed: ${String(err)}`);
-      await db.collection("audits").doc(auditId).set({
-        status: "Failed",
-        error: {message: String(err)},
-        updatedAt: new Date(),
-      }, {merge: true});
+      await pubSubClient.topic(topicName).publishMessage(message);
+      logger.info(`Message published to '${topicName}' for audit ID: ${auditId}`);
+    } catch (error) {
+      logger.error(`Error processing audit ${auditId}:`, error);
+      try {
+        await auditRef.update({
+          status: "Auditing Failed",
+          error: "Failed to queue for auditing.",
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (dbError) {
+        logger.error(`Failed to update audit ${auditId} with error status:`, dbError);
+      }
     }
-  }
+  },
 );

@@ -2,7 +2,8 @@
 import {defineSecret} from "firebase-functions/params";
 
 const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
-const MODEL = "gemini-2.5-pro";
+// Reverting model name based on user's confirmation.
+const MODEL = "gemini-2.5-pro"; 
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 // Define a type for the expected structure of the Gemini API response

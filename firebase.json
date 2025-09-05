@@ -3,18 +3,21 @@
     "predeploy": "npm --prefix \"$RESOURCE_DIR\" run build",
     "source": "_firebase/functions"
   },
-  "hosting": {
-    "source": ".",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ]
-  },
   "storage": {
     "rules": "storage.rules"
   },
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "apphosting": {
+    "backendId": "callqualityapp",
+    "rootDir": "/",
+    "ignore": [
+      "node_modules",
+      ".git",
+      "firebase-debug.log",
+      "firebase-debug.*.log",
+      "functions"
+    ]
   }
 }

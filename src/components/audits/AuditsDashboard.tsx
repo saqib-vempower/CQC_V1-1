@@ -7,10 +7,14 @@ import {
   where,
   orderBy,
   limit,
-  startAfter,
-  getDocs,
+  onSnapshot,
+  Query,
+  DocumentData,
   Timestamp,
+  doc,
+  getDoc,
 } from "firebase/firestore";
+// Removed getStorage, ref, getDownloadURL imports as no longer using client-side Storage fetch
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -46,6 +50,8 @@ import { cn } from "@/lib/utils";
 import { getFirebaseServices } from "@/lib/firebase-client";
 import { useAuth } from "@/context/AuthContext";
 
+type ScoreKey = `c${1|2|3|4|5|6|7|8|9|10}`;
+
 type AuditRow = {
   id: string;
   university: string;
@@ -53,37 +59,30 @@ type AuditRow = {
   callType?: string;
   agentName?: string;
   applicantId?: string;
-  callDate?: string; // Added callDate
+  callDate?: string;
   createdAt?: Timestamp | { seconds: number; nanoseconds: number } | Date;
-  status:
-    | "Uploaded"
-    | "Transcribing"
-    | "Auditing"
-    | "Completed"
-    | "Auditing Failed"
-    | "Transcription Failed";
-  c1: number | string;
-  c2: number | string;
-  c3: number | string;
-  c4: number | string;
-  c5: number | string;
-  c6: number | string;
-  c7: number | string;
-  c8: number | string;
-  c9: number | string;
-  c10: number | string;
-  finalCqScore: number;
+  status: string;
+  // Removed top-level c1-c10, as they are nested under 'scores'
+  scores: Record<ScoreKey, number | null>; // Correctly type the nested scores object
+  finalCqScore: number; // This is top-level
   summary: string;
   improvementTips: string;
-  utterances?: {
+  transcriptId?: string;
+};
+
+// Corrected to directly reflect Firestore document structure for transcripts collection
+type TranscriptDoc = {
+  auditId: string;
+  textSummary: string;
+  utterances: {
     speaker: string;
     text: string;
     start?: number;
     end?: number;
+    words?: any[]; // Keep for compatibility if present in Firestore
   }[];
+  createdAt: Timestamp;
 };
-
-const PAGE_SIZE = 25;
 
 const universityOptions = [
     { value: 'all', label: 'All Universities' },
@@ -103,8 +102,9 @@ const universityOptions = [
   ];
 
 export default function AuditsDashboard() {
-  const { db } = getFirebaseServices();
+  const { db, app } = getFirebaseServices();
   const { user } = useAuth();
+  // const storage = getStorage(app); // Removed client-side Storage initialization
 
   // Filters
   const [university, setUniversity] = React.useState<string>("all");
@@ -114,72 +114,75 @@ export default function AuditsDashboard() {
 
   // Data
   const [rows, setRows] = React.useState<AuditRow[]>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [lastDoc, setLastDoc] = React.useState<any>(null);
-  const [hasMore, setHasMore] = React.useState(true);
+  const [loading, setLoading] = React.useState(true);
 
   // Details sheets
-  const [openTranscriptId, setOpenTranscriptId] = React.useState<string | null>(null); // Renamed for clarity
-  const [openImprovementTipsId, setOpenImprovementTipsId] = React.useState<string | null>(null); // New state for improvement tips
+  const [openTranscriptId, setOpenTranscriptId] = React.useState<string | null>(null);
+  const [activeTranscript, setActiveTranscript] = React.useState<TranscriptDoc | null>(null); 
+  const [fetchingTranscript, setFetchingTranscript] = React.useState(false); 
+  const [openImprovementTipsId, setOpenImprovementTipsId] = React.useState<string | null>(null);
 
-  const buildQuery = React.useCallback(
-    async (isNextPage = false) => {
-      setLoading(true);
+  const fetchTranscript = React.useCallback(
+    async (transcriptFirestoreId: string) => {
+      if (!db) return;
+      setFetchingTranscript(true);
+      setActiveTranscript(null); 
       try {
-        const col = collection(db, "audits");
-        let constraints: any[] = [];
-  
-        if (university !== "all") constraints.push(where("university", "==", university));
-        if (domain !== "all") constraints.push(where("domain", "==", domain));
-        if (dateFrom) constraints.push(where("callDate", ">=", format(dateFrom, "yyyy-MM-dd")));
-        if (dateTo) constraints.push(where("callDate", "<=", format(dateTo, "yyyy-MM-dd")));
-  
-        // Always include orderBy clauses in a consistent order to support composite indexing.
-        // The order of these orderBy clauses should match the composite index definition.
-        // This specific order (university, domain, callDate desc) is chosen to support
-        // filtering on any combination of these fields while consistently sorting by call date.
-        constraints.push(orderBy("university")); // Ascending order
-        constraints.push(orderBy("domain"));   // Ascending order
-        constraints.push(orderBy("callDate", "desc")); // Descending order
-  
-        if (isNextPage && lastDoc) constraints.push(startAfter(lastDoc));
-        constraints.push(limit(PAGE_SIZE));
-  
-        const q = query(col, ...constraints);
-        const snap = await getDocs(q);
-  
-        const docs = snap.docs.map(
-          (d) => {
-            console.log("Raw Firestore Data:", d.data()); // Added console.log
-            return { id: d.id, ...d.data() } as unknown as AuditRow;
-          }
-        );
-  
-        if (isNextPage) setRows((prev) => [...prev, ...docs]);
-        else setRows(docs);
-  
-        setLastDoc(snap.docs[snap.docs.length - 1] || null);
-        setHasMore(snap.size === PAGE_SIZE);
-      } catch (error: any) {
-        if (error.code === 'failed-precondition') {
-          console.error("Query failed. The query requires an index. Please create it in your Firebase console. The recommended index for this query is on 'audits' collection with fields 'university (asc)', 'domain (asc)', 'callDate (desc)'.", error.toString());
-          // Clear the rows to indicate that the query failed
-          setRows([]);
-        } else {
-          console.error("An error occurred while fetching the data.", error);
+        const transcriptRef = doc(db, "transcripts", transcriptFirestoreId);
+        const transcriptSnap = await getDoc(transcriptRef);
+
+        if (!transcriptSnap.exists()) {
+          console.log("No such transcript document found in Firestore!");
+          return;
         }
+
+        const firestoreData = transcriptSnap.data() as TranscriptDoc; // Cast to updated type
+        setActiveTranscript(firestoreData);
+
+      } catch (error) {
+        console.error("Error fetching full transcript from Firestore:", error);
+        setActiveTranscript(null);
       } finally {
-        setLoading(false);
+        setFetchingTranscript(false);
       }
     },
-    [db, university, domain, dateFrom, dateTo, lastDoc]
+    [db]
   );
-
+  
   React.useEffect(() => {
-    setLastDoc(null);
-    setHasMore(true);
-    void buildQuery(false);
-  }, [university, domain, dateFrom, dateTo, buildQuery]);
+    if (!db) return;
+    setLoading(true);
+
+    const col = collection(db, "audits");
+    let constraints: any[] = [];
+
+    if (university !== "all") constraints.push(where("university", "==", university));
+    if (domain !== "all") constraints.push(where("domain", "==", domain));
+    if (dateFrom) constraints.push(where("callDate", ">=", format(dateFrom, "yyyy-MM-dd")));
+    if (dateTo) constraints.push(where("callDate", "<=", format(dateTo, "yyyy-MM-dd")));
+
+    constraints.push(orderBy("callDate", "desc"));
+    constraints.push(limit(50));
+
+    const q: Query<DocumentData> = query(col, ...constraints);
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const docs = querySnapshot.docs.map(
+        (d) => ({ id: d.id, ...d.data() } as AuditRow)
+      );
+      setRows(docs);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error listening to audits:", error);
+      if (error.code === 'failed-precondition') {
+        console.error("Query failed. The query may require an index. Please check the Firestore console.");
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [db, university, domain, dateFrom, dateTo]);
+
 
   return (
     <div className="space-y-4">
@@ -267,138 +270,148 @@ export default function AuditsDashboard() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((r) => {
-              const dt =
-                r.createdAt instanceof Timestamp
-                  ? r.createdAt.toDate()
-                  : r.createdAt && (r.createdAt as any).seconds !== undefined
-                  ? new Date((r.createdAt as any).seconds * 1000)
-                  : r.createdAt instanceof Date
-                  ? r.createdAt
-                  : new Date();
-
-              return (
-                <TableRow key={r.id} className="whitespace-nowrap">
-                  <TableCell>{r.agentName}</TableCell>
-                  <TableCell>{r.callDate ? format(new Date(r.callDate), "dd MMM yyyy") : format(dt, "dd MMM yyyy, HH:mm")}</TableCell>
-                  <TableCell>{r.status}</TableCell>
-                  <TableCell>{r.c1}</TableCell>
-                  <TableCell>{r.c2}</TableCell>
-                  <TableCell>{r.c3}</TableCell>
-                  <TableCell>{r.c4}</TableCell>
-                  <TableCell>{r.c5}</TableCell>
-                  <TableCell>{r.c6}</TableCell>
-                  <TableCell>{r.c7}</TableCell>
-                  <TableCell>{r.c8}</TableCell>
-                  <TableCell>{r.c9}</TableCell>
-                  <TableCell>{r.c10}</TableCell>
-                  <TableCell className="font-semibold">{r.finalCqScore}</TableCell>
-                  <TableCell>
-                    <Sheet
-                      open={openImprovementTipsId === r.id}
-                      onOpenChange={(o) => setOpenImprovementTipsId(o ? r.id : null)}
-                    >
-                      <SheetTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          Details
-                        </Button>
-                      </SheetTrigger>
-                      <SheetContent
-                        side="right"
-                        className="w-[700px] sm:w-[760px] md:w-[880px] overflow-y-auto"
-                      >
-                        <SheetHeader>
-                          <SheetTitle>
-                            Improvement Tips — {r.university} / {r.domain}
-                          </SheetTitle>
-                        </SheetHeader>
-                        <div className="mt-4 space-y-2 whitespace-pre-wrap">
-                          {r.improvementTips || (
-                            <p className="text-sm text-muted-foreground">
-                              No improvement tips available.
-                            </p>
-                          )}
-                        </div>
-                      </SheetContent>
-                    </Sheet>
-                  </TableCell>
-                  <TableCell>{r.applicantId}</TableCell>
-                  <TableCell>{r.university}</TableCell>
-                  <TableCell>{r.domain}</TableCell>
-                  <TableCell>{r.callType}</TableCell>
-                  <TableCell className="sticky right-0 bg-background z-10">
-                    <Sheet
-                      open={openTranscriptId === r.id}
-                      onOpenChange={(o) => setOpenTranscriptId(o ? r.id : null)}
-                    >
-                      <SheetTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          Details
-                        </Button>
-                      </SheetTrigger>
-                      <SheetContent
-                        side="right"
-                        className="w-[700px] sm:w-[760px] md:w-[880px] overflow-y-auto"
-                      >
-                        <SheetHeader>
-                          <SheetTitle>
-                            Diarized Transcript — {r.university} / {r.domain}
-                          </SheetTitle>
-                        </SheetHeader>
-                        <div className="mt-4 space-y-2">
-                          {r.utterances?.length ? (
-                            r.utterances.map((u, idx) => (
-                              <div key={idx} className="text-sm leading-6">
-                                <span className="font-medium">
-                                  {u.speaker ?? "Speaker"}:
-                                </span>{" "}
-                                <span>{u.text}</span>
-                                {typeof u.start === "number" ? (
-                                  <span className="text-muted-foreground">
-                                    {" "}
-                                    ({toTime(u.start)}-
-                                    {toTime(u.end ?? u.start)})
-                                  </span>
-                                ) : null}
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-sm text-muted-foreground">
-                              No utterances saved.
-                            </p>
-                          )}
-                        </div>
-                      </SheetContent>
-                    </Sheet>
-                  </TableCell>
+            {loading ? (
+                <TableRow>
+                    <TableCell colSpan={20} className="h-24 text-center">
+                    Loading...
+                    </TableCell>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
+            ) : rows.length > 0 ? (
+                rows.map((r) => {
+                const dt =
+                    r.createdAt instanceof Timestamp
+                    ? r.createdAt.toDate()
+                    : r.createdAt && (r.createdAt as any).seconds !== undefined
+                    ? new Date((r.createdAt as any).seconds * 1000)
+                    : r.createdAt instanceof Date
+                    ? r.createdAt
+                    : new Date();
 
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          onClick={() => void buildQuery(true)}
-          disabled={!hasMore || loading}
-        >
-          {hasMore ? "Load more" : "No more"}
-        </Button>
+                return (
+                    <TableRow key={r.id} className="whitespace-nowrap">
+                    <TableCell>{r.agentName}</TableCell>
+                    <TableCell>{r.callDate ? format(new Date(r.callDate), "dd MMM yyyy") : format(dt, "dd MMM yyyy, HH:mm")}</TableCell>
+                    <TableCell>{r.status}</TableCell>
+                    <TableCell>{r.scores?.c1 ?? 'N/A'}</TableCell>
+                    <TableCell>{r.scores?.c2 ?? 'N/A'}</TableCell>
+                    <TableCell>{r.scores?.c3 ?? 'N/A'}</TableCell>
+                    <TableCell>{r.scores?.c4 ?? 'N/A'}</TableCell>
+                    <TableCell>{r.scores?.c5 ?? 'N/A'}</TableCell>
+                    <TableCell>{r.scores?.c6 ?? 'N/A'}</TableCell>
+                    <TableCell>{r.scores?.c7 ?? 'N/A'}</TableCell>
+                    <TableCell>{r.scores?.c8 ?? 'N/A'}</TableCell>
+                    <TableCell>{r.scores?.c9 ?? 'N/A'}</TableCell>
+                    <TableCell>{r.scores?.c10 ?? 'N/A'}</TableCell>
+                    <TableCell className="font-semibold">{r.finalCqScore ?? 'N/A'}</TableCell>
+                    <TableCell>
+                        <Sheet
+                        open={openImprovementTipsId === r.id}
+                        onOpenChange={(o) => setOpenImprovementTipsId(o ? r.id : null)}
+                        >
+                        <SheetTrigger asChild>
+                            <Button variant="outline" size="sm">
+                            Details
+                            </Button>
+                        </SheetTrigger>
+                        <SheetContent
+                            side="right"
+                            className="w-[700px] sm:w-[760px] md:w-[880px] overflow-y-auto"
+                        >
+                            <SheetHeader>
+                            <SheetTitle>
+                                Improvement Tips — {r.university} / {r.domain}
+                            </SheetTitle>
+                            </SheetHeader>
+                            <div className="mt-4 space-y-2 whitespace-pre-wrap">
+                            {r.improvementTips || (
+                                <p className="text-sm text-muted-foreground">
+                                No improvement tips available.
+                                </p>
+                            )}
+                            </div>
+                        </SheetContent>
+                        </Sheet>
+                    </TableCell>
+                    <TableCell>{r.applicantId}</TableCell>
+                    <TableCell>{r.university}</TableCell>
+                    <TableCell>{r.domain}</TableCell>
+                    <TableCell>{r.callType}</TableCell>
+                    <TableCell className="sticky right-0 bg-background z-10">
+                    <Sheet
+                        open={openTranscriptId === r.id}
+                        onOpenChange={(o) => {
+                            if (o && r.transcriptId) {
+                            setOpenTranscriptId(r.id);
+                            fetchTranscript(r.transcriptId);
+                            } else {
+                            setOpenTranscriptId(null);
+                            setActiveTranscript(null);
+                            }
+                        }}
+                        >
+                        <SheetTrigger asChild>
+                            <Button variant="outline" size="sm" disabled={!r.transcriptId || fetchingTranscript}>
+                                {fetchingTranscript ? "Loading..." : "Details"}
+                            </Button>
+                        </SheetTrigger>
+                        <SheetContent
+                            side="right"
+                            className="w-[700px] sm:w-[760px] md:w-[880px] overflow-y-auto"
+                        >
+                            <SheetHeader>
+                            <SheetTitle>
+                                Diarized Transcript — {r.university} / {r.domain}
+                            </SheetTitle>
+                            </SheetHeader>
+                            <div className="mt-4 space-y-2">
+                            {fetchingTranscript ? (
+                                <p className="text-sm text-muted-foreground">Loading transcript...</p>
+                            ) : activeTranscript?.utterances?.length ? (
+                                activeTranscript.utterances.map((u, idx) => (
+                                <div key={idx} className="text-sm leading-6">
+                                    <span className="font-medium">
+                                    {u.speaker ?? "Speaker"}:
+                                    </span>{" "}
+                                    <span>{u.text}</span>
+                                    {typeof u.start === "number" ? (
+                                        <span className="text-muted-foreground">
+                                            {" "}
+                                            ({toTime(u.start)}-
+                                            {toTime(u.end ?? u.start)})
+                                        </span>
+                                    ) : null}
+                                </div>
+                                ))
+                            ) : (
+                                <p className="text-sm text-muted-foreground">
+                                No utterances saved or still loading.
+                                </p>
+                            )}
+                            </div>
+                        </SheetContent>
+                        </Sheet>
+                    </TableCell>
+                    </TableRow>
+                );
+                })
+            ) : (
+                <TableRow>
+                    <TableCell colSpan={20} className="h-24 text-center">
+                    No results found.
+                    </TableCell>
+                </TableRow>
+            )}
+            </TableBody>
+        </Table>
       </div>
     </div>
   );
 }
 
-function truncate(s: string, n = 120) {
-  if (!s) return "";
-  return s.length > n ? s.slice(0, n - 1) + "…" : s;
-}
-
 function toTime(msOrSec: number) {
-  const s = msOrSec > 1000 ? Math.floor(msOrSec / 1000) : Math.floor(msOrSec);
-  const m = Math.floor(s / 60);
-  const rem = s % 60;
-  return `${String(m).padStart(2, "0")}:${String(rem).padStart(2, "0")}`;
-}
+    const totalSeconds = msOrSec > 1000 ? Math.floor(msOrSec / 1000) : Math.floor(msOrSec);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+  
