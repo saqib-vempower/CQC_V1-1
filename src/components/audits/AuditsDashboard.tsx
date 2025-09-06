@@ -121,6 +121,7 @@ export default function AuditsDashboard() {
   const [activeTranscript, setActiveTranscript] = React.useState<TranscriptDoc | null>(null); 
   const [fetchingTranscript, setFetchingTranscript] = React.useState(false); 
   const [openImprovementTipsId, setOpenImprovementTipsId] = React.useState<string | null>(null);
+  const [openSummaryId, setOpenSummaryId] = React.useState<string | null>(null); // New state for Summary
 
   const fetchTranscript = React.useCallback(
     async (transcriptFirestoreId: string) => {
@@ -262,6 +263,7 @@ export default function AuditsDashboard() {
               <TableHead>C10 Score</TableHead>
               <TableHead>Total CQ Score</TableHead>
               <TableHead className="min-w-[240px]">Improvement tips</TableHead>
+              <TableHead className="min-w-[240px]">Summary</TableHead> {/* New TableHead for Summary */}
               <TableHead>App / Ref ID</TableHead>
               <TableHead>University Name</TableHead>
               <TableHead>Call Domain</TableHead>
@@ -326,6 +328,36 @@ export default function AuditsDashboard() {
                             {r.improvementTips || (
                                 <p className="text-sm text-muted-foreground">
                                 No improvement tips available.
+                                </p>
+                            )}
+                            </div>
+                        </SheetContent>
+                        </Sheet>
+                    </TableCell>
+                    {/* New TableCell for Summary */}
+                    <TableCell>
+                        <Sheet
+                        open={openSummaryId === r.id}
+                        onOpenChange={(o) => setOpenSummaryId(o ? r.id : null)}
+                        >
+                        <SheetTrigger asChild>
+                            <Button variant="outline" size="sm">
+                            Details
+                            </Button>
+                        </SheetTrigger>
+                        <SheetContent
+                            side="right"
+                            className="w-[700px] sm:w-[760px] md:w-[880px] overflow-y-auto"
+                        >
+                            <SheetHeader>
+                            <SheetTitle>
+                                Call Summary — {r.university} / {r.domain}
+                            </SheetTitle>
+                            </SheetHeader>
+                            <div className="mt-4 space-y-2 whitespace-pre-wrap">
+                            {r.summary || (
+                                <p className="text-sm text-muted-foreground">
+                                No summary available.
                                 </p>
                             )}
                             </div>

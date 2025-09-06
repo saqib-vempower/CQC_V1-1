@@ -125,14 +125,19 @@ export const scoreCall = onMessagePublished(
     } catch (error) {
       logger.error(`Error scoring call for audit ${auditId}:`, error);
       let errorMessage = "An unknown error occurred during scoring.";
+      let statusMessage = "Auditing Failed";
+
       if (error instanceof z.ZodError) {
         errorMessage = "AI response validation failed.";
       } else if (error instanceof Error) {
         errorMessage = error.message;
+        if (errorMessage.includes("Gemini HTTP 503")) {
+          statusMessage = "AI Overloaded";
+        }
       }
       try {
         await auditRef.update({
-          status: "Auditing Failed",
+          status: statusMessage,
           error: errorMessage,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
