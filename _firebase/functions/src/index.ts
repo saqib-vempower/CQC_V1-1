@@ -12,3 +12,4 @@ export {onAiAuditing} from "./audit-pipeline/processor";
 export {onScored} from "./audit-pipeline/calculator";
 export {onLogin} from "./user-management";
 export {scoreCall} from "./ai/scoreCall";
+export {reAuditCall} from "./audit-pipeline/reAudit"; // Export the new reAuditCall function

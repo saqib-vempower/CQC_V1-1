@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import * as React from "react";
 import {
@@ -14,7 +14,6 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
-// Removed getStorage, ref, getDownloadURL imports as no longer using client-side Storage fetch
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -49,6 +48,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { getFirebaseServices } from "@/lib/firebase-client";
 import { useAuth } from "@/context/AuthContext";
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { Badge } from "@/components/ui/badge";
 
 type ScoreKey = `c${1|2|3|4|5|6|7|8|9|10}`;
 
@@ -62,15 +63,13 @@ type AuditRow = {
   callDate?: string;
   createdAt?: Timestamp | { seconds: number; nanoseconds: number } | Date;
   status: string;
-  // Removed top-level c1-c10, as they are nested under 'scores'
-  scores: Record<ScoreKey, number | null>; // Correctly type the nested scores object
-  finalCqScore: number; // This is top-level
+  scores: Record<ScoreKey, number | null>;
+  finalCqScore: number;
   summary: string;
   improvementTips: string;
   transcriptId?: string;
 };
 
-// Corrected to directly reflect Firestore document structure for transcripts collection
 type TranscriptDoc = {
   auditId: string;
   textSummary: string;
@@ -79,10 +78,13 @@ type TranscriptDoc = {
     text: string;
     start?: number;
     end?: number;
-    words?: any[]; // Keep for compatibility if present in Firestore
+    words?: any[];
   }[];
   createdAt: Timestamp;
 };
+
+type ReauditStatus = "idle" | "pending" | "success" | "error";
+type ReauditState = Record<string, { status: ReauditStatus; message?: string }>;
 
 const universityOptions = [
     { value: 'all', label: 'All Universities' },
@@ -104,7 +106,8 @@ const universityOptions = [
 export default function AuditsDashboard() {
   const { db, app } = getFirebaseServices();
   const { user } = useAuth();
-  // const storage = getStorage(app); // Removed client-side Storage initialization
+  const functions = React.useMemo(() => getFunctions(app), [app]);
+  const reAuditCallCallable = React.useMemo(() => httpsCallable(functions, 'reAuditCall'), [functions]);
 
   // Filters
   const [university, setUniversity] = React.useState<string>("all");
@@ -115,13 +118,14 @@ export default function AuditsDashboard() {
   // Data
   const [rows, setRows] = React.useState<AuditRow[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [reauditState, setReauditState] = React.useState<ReauditState>({});
 
   // Details sheets
   const [openTranscriptId, setOpenTranscriptId] = React.useState<string | null>(null);
   const [activeTranscript, setActiveTranscript] = React.useState<TranscriptDoc | null>(null); 
   const [fetchingTranscript, setFetchingTranscript] = React.useState(false); 
   const [openImprovementTipsId, setOpenImprovementTipsId] = React.useState<string | null>(null);
-  const [openSummaryId, setOpenSummaryId] = React.useState<string | null>(null); // New state for Summary
+  const [openSummaryId, setOpenSummaryId] = React.useState<string | null>(null);
 
   const fetchTranscript = React.useCallback(
     async (transcriptFirestoreId: string) => {
@@ -137,7 +141,7 @@ export default function AuditsDashboard() {
           return;
         }
 
-        const firestoreData = transcriptSnap.data() as TranscriptDoc; // Cast to updated type
+        const firestoreData = transcriptSnap.data() as TranscriptDoc;
         setActiveTranscript(firestoreData);
 
       } catch (error) {
@@ -150,6 +154,20 @@ export default function AuditsDashboard() {
     [db]
   );
   
+  const handleReAudit = async (auditId: string) => {
+    setReauditState(prev => ({ ...prev, [auditId]: { status: 'pending' } }));
+    try {
+      await reAuditCallCallable({ auditId });
+      setReauditState(prev => ({ ...prev, [auditId]: { status: 'success', message: 'Re-audit started!' } }));
+      setTimeout(() => {
+         setReauditState(prev => ({ ...prev, [auditId]: { status: 'idle' } }));
+      }, 5000);
+    } catch (error: any) {
+      console.error('Error calling re-audit function:', error);
+      setReauditState(prev => ({ ...prev, [auditId]: { status: 'error', message: error.message } }));
+    }
+  };
+
   React.useEffect(() => {
     if (!db) return;
     setLoading(true);
@@ -162,7 +180,12 @@ export default function AuditsDashboard() {
     if (dateFrom) constraints.push(where("callDate", ">=", format(dateFrom, "yyyy-MM-dd")));
     if (dateTo) constraints.push(where("callDate", "<=", format(dateTo, "yyyy-MM-dd")));
 
-    constraints.push(orderBy("callDate", "desc"));
+    if (dateFrom || dateTo) {
+      constraints.push(orderBy("callDate", "desc"));
+    } else {
+      constraints.push(orderBy("createdAt", "desc"));
+    }
+
     constraints.push(limit(50));
 
     const q: Query<DocumentData> = query(col, ...constraints);
@@ -184,6 +207,42 @@ export default function AuditsDashboard() {
     return () => unsubscribe();
   }, [db, university, domain, dateFrom, dateTo]);
 
+  const renderStatusCell = (row: AuditRow) => {
+    const currentState = reauditState[row.id]?.status;
+
+    if (currentState === 'pending') {
+      return <Badge variant="secondary">Re-auditing...</Badge>;
+    }
+    if (currentState === 'error') {
+      return (
+        <div className="flex flex-col items-start">
+            <Badge variant="destructive">Error</Badge>
+            <Button variant="link" size="sm" onClick={() => handleReAudit(row.id)} className="p-0 h-auto mt-1 text-xs">
+                Retry
+            </Button>
+        </div>
+      );
+    }
+     if (currentState === 'success') {
+      return <Badge variant="secondary">{reauditState[row.id]?.message}</Badge>;
+    }
+
+    return (
+      <div className="flex flex-col items-start">
+        <span>{row.status}</span>
+        {row.status === "AI_OVERLOADED" && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => handleReAudit(row.id)}
+            className="mt-2"
+          >
+            Re-Audit
+          </Button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -263,7 +322,7 @@ export default function AuditsDashboard() {
               <TableHead>C10 Score</TableHead>
               <TableHead>Total CQ Score</TableHead>
               <TableHead className="min-w-[240px]">Improvement tips</TableHead>
-              <TableHead className="min-w-[240px]">Summary</TableHead> {/* New TableHead for Summary */}
+              <TableHead className="min-w-[240px]">Summary</TableHead>
               <TableHead>App / Ref ID</TableHead>
               <TableHead>University Name</TableHead>
               <TableHead>Call Domain</TableHead>
@@ -274,7 +333,7 @@ export default function AuditsDashboard() {
           <TableBody>
             {loading ? (
                 <TableRow>
-                    <TableCell colSpan={20} className="h-24 text-center">
+                    <TableCell colSpan={20} className="h-24 text-center"> 
                     Loading...
                     </TableCell>
                 </TableRow>
@@ -293,7 +352,7 @@ export default function AuditsDashboard() {
                     <TableRow key={r.id} className="whitespace-nowrap">
                     <TableCell>{r.agentName}</TableCell>
                     <TableCell>{r.callDate ? format(new Date(r.callDate), "dd MMM yyyy") : format(dt, "dd MMM yyyy, HH:mm")}</TableCell>
-                    <TableCell>{r.status}</TableCell>
+                    <TableCell>{renderStatusCell(r)}</TableCell>
                     <TableCell>{r.scores?.c1 ?? 'N/A'}</TableCell>
                     <TableCell>{r.scores?.c2 ?? 'N/A'}</TableCell>
                     <TableCell>{r.scores?.c3 ?? 'N/A'}</TableCell>
@@ -334,7 +393,6 @@ export default function AuditsDashboard() {
                         </SheetContent>
                         </Sheet>
                     </TableCell>
-                    {/* New TableCell for Summary */}
                     <TableCell>
                         <Sheet
                         open={openSummaryId === r.id}
@@ -428,7 +486,7 @@ export default function AuditsDashboard() {
                 })
             ) : (
                 <TableRow>
-                    <TableCell colSpan={20} className="h-24 text-center">
+                    <TableCell colSpan={20} className="h-24 text-center"> 
                     No results found.
                     </TableCell>
                 </TableRow>
@@ -446,4 +504,3 @@ function toTime(msOrSec: number) {
     const seconds = totalSeconds % 60;
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
-  
