@@ -43,23 +43,19 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { CalendarIcon, PlayCircle } from "lucide-react";
+import { CalendarIcon, PlayCircle, Download } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { getFirebaseServices } from "@/lib/firebase-client";
 import { useAuth } from "@/context/AuthContext";
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type ScoreKey = `c${1|2|3|4|5|6|7|8|9|10}`;
 
@@ -124,8 +120,8 @@ export default function AuditsDashboard() {
   // Filters
   const [university, setUniversity] = React.useState<string>("all");
   const [domain, setDomain] = React.useState<string>("all");
-  const [dateFrom, setDateFrom] = React.useState<Date | undefined>(undefined);
-  const [dateTo, setDateTo] = React.useState<Date | undefined>(undefined);
+  const [dateFrom, setDateFrom] = React.useState<string>("");
+  const [dateTo, setDateTo] = React.useState<string>("");
 
   // Data
   const [rows, setRows] = React.useState<AuditRow[]>([]);
@@ -202,14 +198,12 @@ export default function AuditsDashboard() {
 
     if (university !== "all") constraints.push(where("university", "==", university));
     if (domain !== "all") constraints.push(where("domain", "==", domain));
-    if (dateFrom) constraints.push(where("callDate", ">=", format(dateFrom, "yyyy-MM-dd")));
-    if (dateTo) constraints.push(where("callDate", "<=", format(dateTo, "yyyy-MM-dd")));
+    // Using string dates directly for Firestore queries
+    if (dateFrom) constraints.push(where("callDate", ">=", dateFrom));
+    if (dateTo) constraints.push(where("callDate", "<=", dateTo));
 
-    if (dateFrom || dateTo) {
-      constraints.push(orderBy("callDate", "desc"));
-    } else {
-      constraints.push(orderBy("createdAt", "desc"));
-    }
+    // Always sort by createdAt as requested
+    constraints.push(orderBy("createdAt", "desc"));
 
     constraints.push(limit(50));
 
@@ -269,63 +263,130 @@ export default function AuditsDashboard() {
     );
   };
 
+  const handleDownloadCsv = () => {
+    const headers = [
+      "Agent Name",
+      "Date",
+      "C1 Score",
+      "C2 Score",
+      "C3 Score",
+      "C4 Score",
+      "C5 Score",
+      "C6 Score",
+      "C7 Score",
+      "C8 Score",
+      "C9 Score",
+      "C10 Score",
+      "Total CQ Score",
+      "University Name",
+      "Call Domain",
+      "App / Ref ID",
+    ];
+
+    const csvRows = rows.map(row => {
+      const dt =
+        row.createdAt instanceof Timestamp
+          ? row.createdAt.toDate()
+          : row.createdAt && (row.createdAt as any).seconds !== undefined
+          ? new Date((row.createdAt as any).seconds * 1000)
+          : row.createdAt instanceof Date
+          ? row.createdAt
+          : new Date();
+
+      const formattedDate = row.callDate ? format(new Date(row.callDate), "dd MMM yyyy") : format(dt, "dd MMM yyyy, HH:mm");
+
+      const escapeCsv = (value: any) => {
+        if (value === null || value === undefined) return '';
+        let stringValue = String(value);
+        // If the value contains a comma, double quote, or newline, enclose it in double quotes
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      };
+
+      return [
+        escapeCsv(row.agentName),
+        escapeCsv(formattedDate),
+        escapeCsv(row.scores?.c1 ?? 'N/A'),
+        escapeCsv(row.scores?.c2 ?? 'N/A'),
+        escapeCsv(row.scores?.c3 ?? 'N/A'),
+        escapeCsv(row.scores?.c4 ?? 'N/A'),
+        escapeCsv(row.scores?.c5 ?? 'N/A'),
+        escapeCsv(row.scores?.c6 ?? 'N/A'),
+        escapeCsv(row.scores?.c7 ?? 'N/A'),
+        escapeCsv(row.scores?.c8 ?? 'N/A'),
+        escapeCsv(row.scores?.c9 ?? 'N/A'),
+        escapeCsv(row.scores?.c10 ?? 'N/A'),
+        escapeCsv(row.finalCqScore ?? 'N/A'),
+        escapeCsv(row.university),
+        escapeCsv(row.domain),
+        escapeCsv(row.applicantId),
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'audits_data.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-end">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
-          <Select onValueChange={setUniversity} value={university}>
-            <SelectTrigger><SelectValue placeholder="Select University" /></SelectTrigger>
-            <SelectContent>{universityOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select onValueChange={setDomain} value={domain}>
-            <SelectTrigger><SelectValue placeholder="Select Domain" /></SelectTrigger>
-            <SelectContent>{domainOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-          </Select>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !dateFrom && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateFrom ? format(dateFrom, "PPP") : <span>Pick a start date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={dateFrom}
-                onSelect={setDateFrom}
-                initialFocus
+          {/* Added Label for University Select */}
+          <div className="grid gap-2">
+            <Label htmlFor="university-select">University Name</Label>
+            <Select onValueChange={setUniversity} value={university}>
+              <SelectTrigger id="university-select"><SelectValue placeholder="Select University" /></SelectTrigger>
+              <SelectContent>{universityOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          
+          {/* Added Label for Domain Select */}
+          <div className="grid gap-2">
+            <Label htmlFor="domain-select">Call Domain</Label>
+            <Select onValueChange={setDomain} value={domain}>
+              <SelectTrigger id="domain-select"><SelectValue placeholder="Select Domain" /></SelectTrigger>
+              <SelectContent>{domainOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+
+          {/* Existing Date Pickers with Labels */}
+          <div className="grid gap-2">
+              <Label htmlFor="date-from">Start Date</Label>
+              <Input
+                  id="date-from"
+                  type="date"
+                  value={dateFrom}
+                  onChange={e => setDateFrom(e.target.value)}
+                  className="w-full"
               />
-            </PopoverContent>
-          </Popover>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !dateTo && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateTo ? format(dateTo, "PPP") : <span>Pick an end date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={dateTo}
-                onSelect={setDateTo}
-                initialFocus
+          </div>
+          <div className="grid gap-2">
+              <Label htmlFor="date-to">End Date</Label>
+              <Input
+                  id="date-to"
+                  type="date"
+                  value={dateTo}
+                  onChange={e => setDateTo(e.target.value)}
+                  className="w-full"
               />
-            </PopoverContent>
-          </Popover>
+          </div>
         </div>
+
+        {/* New Download CSV Button */}
+        <Button onClick={handleDownloadCsv} variant="outline" className="ml-4">
+          <Download className="mr-2 h-4 w-4" /> Download CSV
+        </Button>
+
       </div>
 
       <div className="overflow-auto rounded-md border">
