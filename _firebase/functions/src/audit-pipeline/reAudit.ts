@@ -10,7 +10,7 @@ const storage = getStorage();
 export const reAuditCall = onCall(
   {
     secrets: [AAI_KEY, AAI_WEBHOOK],
-    region: "asia-south2",
+    region: "us-central1", // Ensuring reAuditCall is in us-central1
   },
   async (request) => {
     // Ensure user is authenticated
@@ -54,7 +54,6 @@ export const reAuditCall = onCall(
         );
       }
       
-      // Note: Secret loading is handled by the function's configuration, so this check is for runtime safety.
       if (!process.env.ASSEMBLYAI_API_KEY || !process.env.ASSEMBLYAI_WEBHOOK_SECRET) {
           logger.error("AssemblyAI secrets are not loaded.");
           await auditRef.update({
@@ -82,6 +81,7 @@ export const reAuditCall = onCall(
 
       const client = new AssemblyAI({apiKey: process.env.ASSEMBLYAI_API_KEY});
       const projectId = admin.app().options.projectId;
+      // Explicitly target us-central1 for onAiTranscripting webhook
       const webhookUrl = `https://us-central1-${projectId}.cloudfunctions.net/onAiTranscripting?auditId=${auditId}`;
 
       logger.info(`Submitting re-transcript to AssemblyAI for audit ${auditId}.`);
@@ -104,12 +104,10 @@ export const reAuditCall = onCall(
     } catch (error) {
       logger.error(`[Re-Audit Failure] Failed to re-audit call ${auditId}:`, error);
       
-      // If it's already an HttpsError, rethrow it directly.
       if (error instanceof HttpsError) {
         throw error;
       }
       
-      // For other errors, update the document and throw a generic internal error
       const errorMessage = (error instanceof Error) ? error.message : "An unknown error occurred.";
       try {
         await auditRef.update({
@@ -124,7 +122,6 @@ export const reAuditCall = onCall(
       throw new HttpsError(
         "internal",
         "Failed to re-audit call."
-        // We avoid passing the original error details to the client.
       );
     }
   }

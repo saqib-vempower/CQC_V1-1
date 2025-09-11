@@ -14,6 +14,7 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
+import { getDownloadURL, ref } from "firebase/storage";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -37,13 +38,22 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, PlayCircle } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { getFirebaseServices } from "@/lib/firebase-client";
@@ -68,6 +78,7 @@ type AuditRow = {
   summary: string;
   improvementTips: string;
   transcriptId?: string;
+  storagePath?: string;
 };
 
 type TranscriptDoc = {
@@ -104,9 +115,10 @@ const universityOptions = [
   ];
 
 export default function AuditsDashboard() {
-  const { db, app } = getFirebaseServices();
+  const { db, app, storage } = getFirebaseServices();
   const { user } = useAuth();
-  const functions = React.useMemo(() => getFunctions(app), [app]);
+  // Initialize functions with the correct region for reAuditCall
+  const functions = React.useMemo(() => getFunctions(app, "us-central1"), [app]);
   const reAuditCallCallable = React.useMemo(() => httpsCallable(functions, 'reAuditCall'), [functions]);
 
   // Filters
@@ -120,12 +132,13 @@ export default function AuditsDashboard() {
   const [loading, setLoading] = React.useState(true);
   const [reauditState, setReauditState] = React.useState<ReauditState>({});
 
-  // Details sheets
+  // Details sheets and dialogs
   const [openTranscriptId, setOpenTranscriptId] = React.useState<string | null>(null);
   const [activeTranscript, setActiveTranscript] = React.useState<TranscriptDoc | null>(null); 
   const [fetchingTranscript, setFetchingTranscript] = React.useState(false); 
   const [openImprovementTipsId, setOpenImprovementTipsId] = React.useState<string | null>(null);
   const [openSummaryId, setOpenSummaryId] = React.useState<string | null>(null);
+  const [listeningState, setListeningState] = React.useState<Record<string, {loading: boolean, url?: string, error?: string}>>({});
 
   const fetchTranscript = React.useCallback(
     async (transcriptFirestoreId: string) => {
@@ -165,6 +178,18 @@ export default function AuditsDashboard() {
     } catch (error: any) {
       console.error('Error calling re-audit function:', error);
       setReauditState(prev => ({ ...prev, [auditId]: { status: 'error', message: error.message } }));
+    }
+  };
+
+  const handleListen = async (auditId: string, storagePath: string) => {
+    setListeningState(prev => ({ ...prev, [auditId]: { loading: true } }));
+    try {
+      const storageRef = ref(storage, storagePath);
+      const url = await getDownloadURL(storageRef);
+      setListeningState(prev => ({ ...prev, [auditId]: { loading: false, url: url } }));
+    } catch (error: any) {
+      console.error("Error getting audio download URL:", error);
+      setListeningState(prev => ({ ...prev, [auditId]: { loading: false, error: "Failed to load audio." } }));
     }
   };
 
@@ -230,7 +255,7 @@ export default function AuditsDashboard() {
     return (
       <div className="flex flex-col items-start">
         <span>{row.status}</span>
-        {row.status === "AI_OVERLOADED" && (
+        {(row.status || '').trim().toUpperCase() === "AI OVERLOADED" && (
           <Button
             variant="secondary"
             size="sm"
@@ -327,13 +352,14 @@ export default function AuditsDashboard() {
               <TableHead>University Name</TableHead>
               <TableHead>Call Domain</TableHead>
               <TableHead>Call Type</TableHead>
+              <TableHead>Listen</TableHead>
               <TableHead className="sticky right-0 bg-background z-10">Transcript Details</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
                 <TableRow>
-                    <TableCell colSpan={20} className="h-24 text-center"> 
+                    <TableCell colSpan={22} className="h-24 text-center"> 
                     Loading...
                     </TableCell>
                 </TableRow>
@@ -426,6 +452,40 @@ export default function AuditsDashboard() {
                     <TableCell>{r.university}</TableCell>
                     <TableCell>{r.domain}</TableCell>
                     <TableCell>{r.callType}</TableCell>
+                    <TableCell>
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={!r.storagePath}
+                                    onClick={() => handleListen(r.id, r.storagePath!)}
+                                >
+                                    <PlayCircle className="mr-2 h-4 w-4" />
+                                    Listen
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                <DialogTitle>Call Recording</DialogTitle>
+                                </DialogHeader>
+                                {listeningState[r.id]?.loading && <p>Loading audio...</p>}
+                                {listeningState[r.id]?.error && <p className="text-red-500">{listeningState[r.id]?.error}</p>}
+                                {listeningState[r.id]?.url && (
+                                <audio controls autoPlay src={listeningState[r.id]?.url} className="w-full">
+                                    Your browser does not support the audio element.
+                                </audio>
+                                )}
+                                <DialogFooter>
+                                <DialogClose asChild>
+                                    <Button type="button" variant="secondary">
+                                    Close
+                                    </Button>
+                                </DialogClose>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </TableCell>
                     <TableCell className="sticky right-0 bg-background z-10">
                     <Sheet
                         open={openTranscriptId === r.id}
@@ -486,7 +546,7 @@ export default function AuditsDashboard() {
                 })
             ) : (
                 <TableRow>
-                    <TableCell colSpan={20} className="h-24 text-center"> 
+                    <TableCell colSpan={22} className="h-24 text-center"> 
                     No results found.
                     </TableCell>
                 </TableRow>
