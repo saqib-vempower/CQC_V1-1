@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import withAuthorization from '@/components/withAuthorization';
 import { PageLayout } from '@/components/ui/PageLayout';
@@ -20,6 +21,12 @@ function QAPage() {
           <Button onClick={() => router.push('/tool')} className="w-full">
             Go to Tool
           </Button>
+          {/* Wrapped Macro Dashboard Link in a div for consistent spacing */}
+          <div>
+            <Link href="/macro-dashboard" passHref className="w-full">
+              <Button className="w-full">Go to Macro Dashboard</Button>
+            </Link>
+          </div>
         </div>
       </div>
     </PageLayout>
