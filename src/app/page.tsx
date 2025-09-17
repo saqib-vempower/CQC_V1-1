@@ -9,9 +9,9 @@ import FAQ from '@/components/ui/FAQ';
 
 export default function LandingPage() {
   const brand = {
-    name: 'Call Quality Compass',
-    tagline: 'Call Quality Compass',
-    logo: '🧭',
+    name: 'AI Quality Auditor',
+    tagline: 'AI Quality Auditor',
+    logo: '🤖',
     cta: { primary: { label: 'Get Started', href: '/login' } },
   };
 
