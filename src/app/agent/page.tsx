@@ -17,16 +17,11 @@ function AgentPage() {
           <Button onClick={() => router.push('/dashboard')} className="w-full">
             Go to Dashboard
           </Button>
-          <Button onClick={() => router.push('/macro-dashboard')} className="w-full">
-            Go to Macro-Dashboard
-          </Button>
         </div>
       </div>
     </PageLayout>
   );
 }
 
-
 // Apply the security wrapper to the AgentPage
 export default withAuthorization(AgentPage, ['Agent']);
-
