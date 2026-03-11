@@ -205,7 +205,7 @@ export default function AuditsDashboard() {
     // Always sort by createdAt as requested
     constraints.push(orderBy("createdAt", "desc"));
 
-    constraints.push(limit(50));
+    constraints.push(limit(1000));
 
     const q: Query<DocumentData> = query(col, ...constraints);
 
