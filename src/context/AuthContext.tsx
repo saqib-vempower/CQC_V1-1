@@ -1,56 +1,41 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User, getIdTokenResult } from 'firebase/auth';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { User, onIdTokenChanged } from 'firebase/auth';
 import { getFirebaseServices } from '@/lib/firebase-client';
 
-// Define the shape of the context data
+// Define the shape of the authentication context
 interface AuthContextType {
   user: User | null;
   userRole: string | null;
   loading: boolean;
 }
 
-// Create the context with a default value
+// Create the authentication context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Define the props for the provider component
+// Define the props for the AuthProvider component
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Create the provider component
-export const AuthProvider = ({ children }: AuthProviderProps) => {
+// The provider component that wraps the app and makes auth state available
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { auth, db } = getFirebaseServices();
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
+    const { auth } = getFirebaseServices();
 
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-
-        if (userDoc.exists()) {
-          const tokenResult = await getIdTokenResult(currentUser, true);
-          const role = tokenResult.claims.role || null;
-          setUserRole(role as string | null);
-        } else {
-          setUserRole(null);
-        }
-        
-        onSnapshot(userDocRef, async (doc) => {
-          if (doc.exists() && doc.data().claimsUpdatedAt) {
-            const refreshedTokenResult = await getIdTokenResult(currentUser, true);
-            const newRole = refreshedTokenResult.claims.role || null;
-            setUserRole(newRole as string | null);
-          }
-        });
-
+    // Subscribe to ID token changes to get the user's role from custom claims
+    const unsubscribe = onIdTokenChanged(auth, async (user) => {
+      if (user) {
+        setUser(user);
+        // Force refresh the token to get the latest custom claims
+        const idTokenResult = await user.getIdTokenResult(true);
+        const role = idTokenResult.claims.role as string || null;
+        setUserRole(role);
       } else {
         setUser(null);
         setUserRole(null);
@@ -58,15 +43,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setLoading(false);
     });
 
+    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
+  // Value to be provided by the context
   const value = { user, userRole, loading };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
 
-// Create a custom hook for easy consumption of the context
+// Custom hook to use the auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
