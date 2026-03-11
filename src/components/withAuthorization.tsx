@@ -4,12 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
-// Define the props for the wrapper component
-interface WithAuthorizationProps {
-  allowedRoles: string[];
-}
-
-// This is a Higher-Order Component (HOC)
+// This is a Higher-Order Component (HOC) for authorization
 const withAuthorization = <P extends object>(
   WrappedComponent: React.ComponentType<P>,
   allowedRoles: string[]
@@ -17,41 +12,49 @@ const withAuthorization = <P extends object>(
   const ComponentWithAuth = (props: P) => {
     const { user, userRole, loading } = useAuth();
     const router = useRouter();
-    const [isAuthorized, setIsAuthorized] = React.useState(false);
 
     React.useEffect(() => {
-      if (!loading) {
-        // If not loading, check for user and role
-        if (!user) {
-          // If no user, redirect to login
-          router.replace('/login');
-        } else if (userRole && !allowedRoles.includes(userRole)) {
-          // If user has a role but it's not allowed, redirect to their home page
-          router.replace(`/${userRole.toLowerCase()}`);
-        } else if (!userRole) {
-            // If user exists but has no role, redirect to login with an error
-            // (This is a failsafe for incomplete user profiles)
-            router.replace('/login');
-        } else {
-          setIsAuthorized(true);
-        }
+      // Wait until the authentication state is fully loaded
+      if (loading) {
+        return; // Render nothing or a loading spinner while we check auth
       }
+
+      // If loading is finished and there is no user, redirect to the login page
+      if (!user) {
+        router.replace('/login');
+        return;
+      }
+
+      // Check if the user's role is one of the allowed roles (case-insensitive)
+      const isAuthorized = userRole && allowedRoles.some(role => role.toLowerCase() === userRole.toLowerCase());
+
+      if (!isAuthorized) {
+        // If the user is not authorized, redirect them. 
+        // If they have a role, send them to their default page; otherwise, send to home.
+        const destination = userRole ? `/${userRole.toLowerCase()}` : '/';
+        router.replace(destination);
+      }
+      // If the user is authorized, the component will render as normal.
+
     }, [user, userRole, loading, router]);
 
-    // While loading, or if user is not authorized, render a loading state or nothing
-    if (!isAuthorized) {
+    // Determine if the user is authorized based on the current state
+    const isAuthorized = !loading && user && userRole && allowedRoles.some(role => role.toLowerCase() === userRole.toLowerCase());
+
+    // Render the wrapped component only if the user is authorized
+    if (isAuthorized) {
+      return <WrappedComponent {...props} />;
+    } else {
+      // Otherwise, render a loading state to prevent content flashing
       return (
         <div className="flex items-center justify-center min-h-screen">
           <p>Loading...</p>
         </div>
       );
     }
-
-    // If authorized, render the wrapped component
-    return <WrappedComponent {...props} />;
   };
 
   return ComponentWithAuth;
 };
 
-export default withAuthorization(ToolPage, ['Admin', 'QA']);
+export default withAuthorization;
