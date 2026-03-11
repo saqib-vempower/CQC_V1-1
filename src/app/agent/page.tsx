@@ -25,3 +25,4 @@ function AgentPage() {
 
 // Apply the security wrapper to the AgentPage
 export default withAuthorization(AgentPage, ['Agent']);
+
