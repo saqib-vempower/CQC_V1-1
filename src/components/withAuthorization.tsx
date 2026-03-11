@@ -54,4 +54,4 @@ const withAuthorization = <P extends object>(
   return ComponentWithAuth;
 };
 
-export default withAuthorization;
+export default withAuthorization(ToolPage, ['Admin', 'QA']);
